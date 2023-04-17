@@ -1,0 +1,49 @@
+schema {
+  mutation: JetPluginMutation
+  query: JetPluginQuery
+}
+
+enum JetPluginVoid {
+  VOID
+}
+
+type JetPluginInfo {
+  description: String
+  version: String!
+}
+
+type JetPluginQuery {
+  jetPluginHealthCheck: JetPluginVoid
+}
+
+enum JetProjectEnv {
+  DEVELOPMENT
+  PRODUCTION
+}
+
+type JetPluginInitializeResponse {
+  info: JetPluginInfo!
+}
+
+type JetPluginMutation {
+  """
+  Called when the plugin is discovered by Jet. The plugin should respond
+  immediately with plugin info and calls Jet's `plugin_initialized` api
+  to finish initialization.
+  """
+  jetPluginInitialize(
+    jetApiEndpoint: String!
+
+    """
+    All calls to Jet's APIs require this access_key. So it should be
+    persisted to local storage of the plugin.
+    """
+    accessKey: String!
+  ): JetPluginInitializeResponse
+
+  "Called when the plugin is enabled by a project."
+  jetPluginEnable(projectId: String!, env: JetProjectEnv!): JetPluginVoid
+
+  "Called when the plugin is disabled by a project."
+  jetPluginDisable(projectId: String!, env: JetProjectEnv!): JetPluginVoid
+}

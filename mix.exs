@@ -9,7 +9,8 @@ defmodule JetPluginSdk.MixProject do
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       dialyzer: [
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:mix, :absinthe]
       ],
       aliases: aliases()
     ]
@@ -18,7 +19,8 @@ defmodule JetPluginSdk.MixProject do
   defp deps do
     [
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false}
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:absinthe, "~> 1.7", only: [:dev, :test], runtime: false}
     ]
   end
 
