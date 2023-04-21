@@ -45,7 +45,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       @desc """
       Called when the plugin is enabled by a project.
       """
-      field :jet_plugin_enable, type: :jet_plugin_void do
+      field :jet_plugin_enable, type: :jet_plugin_callback_response do
         arg :project_id, non_null(:string)
         arg :env, non_null(:jet_project_env)
 
@@ -59,7 +59,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       @desc """
       Called when the plugin is disabled by a project.
       """
-      field :jet_plugin_disable, type: :jet_plugin_void do
+      field :jet_plugin_disable, type: :jet_plugin_callback_response do
         arg :project_id, non_null(:string)
         arg :env, non_null(:jet_project_env)
 
@@ -70,7 +70,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
 
   defp health_check(resolver_module) do
     quote location: :keep do
-      field :jet_plugin_health_check, type: :jet_plugin_void do
+      field :jet_plugin_health_check, type: :jet_plugin_callback_response do
         resolve &unquote(resolver_module).health_check/2
       end
     end
@@ -83,10 +83,6 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
         value :production
       end
 
-      enum :jet_plugin_void do
-        value :void
-      end
-
       object :jet_plugin_info do
         field :description, :string
         field :version, non_null(:string)
@@ -94,6 +90,47 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
 
       object :jet_plugin_initialize_response do
         field :info, non_null(:jet_plugin_info)
+      end
+
+      interface :jet_plugin_callback_response do
+        field :message, :string
+
+        @desc """
+        Arbitrary serialized JSON data.
+        """
+        field :extensions, :string
+      end
+
+      object :jet_plugin_callback_response_ok do
+        field :message, :string
+        field :extensions, :string
+
+        interface :jet_plugin_callback_response
+
+        is_type_of fn
+          %{__callback_resp_type__: :ok} -> true
+          _otherwise -> false
+        end
+      end
+
+      @desc """
+      Issued when an argument of unexpected format is received.
+      For example, a field `email` of type `string` expected an email
+      address is filled out with a malformed string like `"foobar"`.
+      """
+      object :jet_plugin_callback_response_argument_error do
+        field :message, :string
+        field :extensions, :string
+
+        field :invalid_argument, non_null(:string)
+        field :expected, non_null(:string)
+
+        interface :jet_plugin_callback_response
+
+        is_type_of fn
+          %{__callback_resp_type__: :ok} -> true
+          _otherwise -> false
+        end
       end
     end
   end

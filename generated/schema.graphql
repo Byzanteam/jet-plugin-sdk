@@ -3,8 +3,16 @@ schema {
   query: JetPluginQuery
 }
 
-enum JetPluginVoid {
-  VOID
+"""
+Issued when an argument of unexpected format is received.
+For example, a field `email` of type `string` expected an email
+address is filled out with a malformed string like `"foobar"`.
+"""
+type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse {
+  message: String
+  extensions: String
+  invalidArgument: String!
+  expected: String!
 }
 
 type JetPluginInfo {
@@ -13,7 +21,7 @@ type JetPluginInfo {
 }
 
 type JetPluginQuery {
-  jetPluginHealthCheck: JetPluginVoid
+  jetPluginHealthCheck: JetPluginCallbackResponse
 }
 
 enum JetProjectEnv {
@@ -23,6 +31,13 @@ enum JetProjectEnv {
 
 type JetPluginInitializeResponse {
   info: JetPluginInfo!
+}
+
+interface JetPluginCallbackResponse {
+  message: String
+
+  "Arbitrary serialized JSON data."
+  extensions: String
 }
 
 type JetPluginMutation {
@@ -42,8 +57,13 @@ type JetPluginMutation {
   ): JetPluginInitializeResponse
 
   "Called when the plugin is enabled by a project."
-  jetPluginEnable(projectId: String!, env: JetProjectEnv!): JetPluginVoid
+  jetPluginEnable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
 
   "Called when the plugin is disabled by a project."
-  jetPluginDisable(projectId: String!, env: JetProjectEnv!): JetPluginVoid
+  jetPluginDisable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
+}
+
+type JetPluginCallbackResponseOk implements JetPluginCallbackResponse {
+  message: String
+  extensions: String
 }
