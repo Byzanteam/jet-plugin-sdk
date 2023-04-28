@@ -29,10 +29,6 @@ enum JetProjectEnv {
   PRODUCTION
 }
 
-type JetPluginInitializeResponse {
-  info: JetPluginInfo!
-}
-
 interface JetPluginCallbackResponse {
   message: String
 
@@ -54,7 +50,7 @@ type JetPluginMutation {
     persisted to local storage of the plugin.
     """
     accessKey: String!
-  ): JetPluginInitializeResponse
+  ): JetPluginInfo
 
   "Called when the plugin is enabled by a project."
   jetPluginEnable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
