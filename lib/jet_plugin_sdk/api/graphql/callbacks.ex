@@ -26,7 +26,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       immediately with plugin info and calls Jet's `plugin_initialized` api
       to finish initialization.
       """
-      field :jet_plugin_initialize, type: :jet_plugin_initialize_response do
+      field :jet_plugin_initialize, type: :jet_plugin_info do
         arg :jet_api_endpoint, non_null(:string)
 
         @desc """
@@ -86,10 +86,6 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       object :jet_plugin_info do
         field :description, :string
         field :version, non_null(:string)
-      end
-
-      object :jet_plugin_initialize_response do
-        field :info, non_null(:jet_plugin_info)
       end
 
       interface :jet_plugin_callback_response do
