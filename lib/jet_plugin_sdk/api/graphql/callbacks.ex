@@ -26,7 +26,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       immediately with plugin info and calls Jet's `plugin_initialized` api
       to finish initialization.
       """
-      field :jet_plugin_initialize, type: :jet_plugin_info do
+      field :jet_plugin_initialize, type: :jet_plugin_manifest do
         arg :jet_api_endpoint, non_null(:string)
 
         @desc """
@@ -48,6 +48,17 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       field :jet_plugin_enable, type: :jet_plugin_callback_response do
         arg :project_id, non_null(:string)
         arg :env, non_null(:jet_project_env)
+        arg :instance_id, non_null(:string)
+
+        @desc """
+        Serialized JSON data.
+        """
+        arg :config, :string
+
+        @desc """
+        Serialized JSON data provided by project.
+        """
+        arg :arguments, :string
 
         resolve &unquote(resolver_module).enable/2
       end
@@ -83,9 +94,25 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
         value :production
       end
 
-      object :jet_plugin_info do
+      object :jet_plugin_manifest do
         field :description, :string
         field :version, non_null(:string)
+        field :capabilities, list_of(non_null(:jet_plugin_capability))
+      end
+
+      interface :jet_plugin_capability do
+        field :enable, non_null(:boolean)
+      end
+
+      object :jet_plugin_capability_database do
+        field :enable, non_null(:boolean)
+
+        interface :jet_plugin_capability
+
+        is_type_of fn
+          %{__capability_type__: :database} -> true
+          _otherwise -> false
+        end
       end
 
       interface :jet_plugin_callback_response do
