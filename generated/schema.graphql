@@ -15,9 +15,18 @@ type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse
   expected: String!
 }
 
-type JetPluginInfo {
+type JetPluginManifest {
   description: String
   version: String!
+  capabilities: [JetPluginCapability!]
+}
+
+interface JetPluginCapability {
+  enable: Boolean!
+}
+
+type JetPluginCapabilityDatabase implements JetPluginCapability {
+  enable: Boolean!
 }
 
 type JetPluginQuery {
@@ -50,10 +59,22 @@ type JetPluginMutation {
     persisted to local storage of the plugin.
     """
     accessKey: String!
-  ): JetPluginInfo
+  ): JetPluginManifest
 
   "Called when the plugin is enabled by a project."
-  jetPluginEnable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
+  jetPluginEnable(
+    projectId: String!
+
+    env: JetProjectEnv!
+
+    instanceId: String!
+
+    "Serialized JSON data."
+    config: String
+
+    "Serialized JSON data provided by project."
+    arguments: String
+  ): JetPluginCallbackResponse
 
   "Called when the plugin is disabled by a project."
   jetPluginDisable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
