@@ -47,18 +47,13 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       """
       field :jet_plugin_enable, type: :jet_plugin_callback_response do
         arg :project_id, non_null(:string)
-        arg :env, non_null(:jet_project_env)
+        arg :env_id, non_null(:string)
         arg :instance_id, non_null(:string)
 
         @desc """
         Serialized JSON data.
         """
         arg :config, :string
-
-        @desc """
-        Serialized JSON data provided by project.
-        """
-        arg :arguments, :string
 
         resolve &unquote(resolver_module).enable/2
       end
@@ -72,7 +67,8 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
       """
       field :jet_plugin_disable, type: :jet_plugin_callback_response do
         arg :project_id, non_null(:string)
-        arg :env, non_null(:jet_project_env)
+        arg :env_id, non_null(:string)
+        arg :instance_id, non_null(:string)
 
         resolve &unquote(resolver_module).disable/2
       end
@@ -89,11 +85,6 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
 
   defp common_objects do
     quote location: :keep do
-      enum :jet_project_env do
-        value :development
-        value :production
-      end
-
       object :jet_plugin_manifest do
         field :description, :string
         field :version, non_null(:string)

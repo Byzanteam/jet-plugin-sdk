@@ -33,11 +33,6 @@ type JetPluginQuery {
   jetPluginHealthCheck: JetPluginCallbackResponse
 }
 
-enum JetProjectEnv {
-  DEVELOPMENT
-  PRODUCTION
-}
-
 interface JetPluginCallbackResponse {
   message: String
 
@@ -65,19 +60,16 @@ type JetPluginMutation {
   jetPluginEnable(
     projectId: String!
 
-    env: JetProjectEnv!
+    envId: String!
 
     instanceId: String!
 
     "Serialized JSON data."
     config: String
-
-    "Serialized JSON data provided by project."
-    arguments: String
   ): JetPluginCallbackResponse
 
   "Called when the plugin is disabled by a project."
-  jetPluginDisable(projectId: String!, env: JetProjectEnv!): JetPluginCallbackResponse
+  jetPluginDisable(projectId: String!, envId: String!, instanceId: String!): JetPluginCallbackResponse
 }
 
 type JetPluginCallbackResponseOk implements JetPluginCallbackResponse {
