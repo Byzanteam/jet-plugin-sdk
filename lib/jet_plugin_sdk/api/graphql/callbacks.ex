@@ -142,7 +142,7 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
         interface :jet_plugin_callback_response
 
         is_type_of fn
-          %{__callback_resp_type__: :ok} -> true
+          %{__callback_resp_type__: :error} -> true
           _otherwise -> false
         end
       end
