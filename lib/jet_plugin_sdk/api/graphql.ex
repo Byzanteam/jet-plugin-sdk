@@ -95,9 +95,11 @@ defmodule JetPluginSDK.API.GraphQL do
   defmacro __using__(_opts) do
     behaviour =
       quote location: :keep do
-        @behaviour JetPluginSDK.API.GraphQL
         use Absinthe.Schema
         import JetPluginSDK.API.GraphQL, only: [enable_config: 1]
+
+        # 这里必须放到 `use Absinthe.Schema` 后面，否则编译器不会保留 Absinthe.Scheme 的 behaviour
+        @behaviour JetPluginSDK.API.GraphQL
       end
 
     [
