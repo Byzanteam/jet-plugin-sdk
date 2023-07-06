@@ -70,7 +70,7 @@ defmodule JetPluginSDK.API.GraphQL do
   @callback initialize(
               args :: %{
                 jet_api_endpoint: String.t(),
-                access_token: String.t()
+                access_key: String.t()
               },
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
