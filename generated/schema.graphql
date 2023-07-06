@@ -3,18 +3,6 @@ schema {
   query: JetPluginQuery
 }
 
-"""
-Issued when an argument of unexpected format is received.
-For example, a field `email` of type `string` expected an email
-address is filled out with a malformed string like `"foobar"`.
-"""
-type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse {
-  message: String
-  extensions: String
-  invalidArgument: String!
-  expected: String!
-}
-
 type JetPluginManifest {
   description: String
   version: String!
@@ -29,15 +17,32 @@ type JetPluginCapabilityDatabase implements JetPluginCapability {
   enable: Boolean!
 }
 
-type JetPluginQuery {
-  jetPluginHealthCheck: JetPluginCallbackResponse
-}
-
 interface JetPluginCallbackResponse {
   message: String
 
   "Arbitrary serialized JSON data."
   extensions: String
+}
+
+type JetPluginCallbackResponseOk implements JetPluginCallbackResponse {
+  message: String
+  extensions: String
+}
+
+"""
+Issued when an argument of unexpected format is received.
+For example, a field `email` of type `string` expected an email
+address is filled out with a malformed string like `"foobar"`.
+"""
+type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse {
+  message: String
+  extensions: String
+  invalidArgument: String!
+  expected: String!
+}
+
+type JetPluginQuery {
+  jetPluginHealthCheck: JetPluginCallbackResponse
 }
 
 type JetPluginMutation {
@@ -57,22 +62,12 @@ type JetPluginMutation {
   ): JetPluginManifest
 
   "Called when the plugin is enabled by a project."
-  jetPluginEnable(
-    projectId: String!
-
-    envId: String!
-
-    instanceId: String!
-
-    "Serialized JSON data."
-    config: String
-  ): JetPluginCallbackResponse
+  jetPluginEnable(projectId: String!, envId: String!, instanceId: String!, config: JetPluginEnableConfig!): JetPluginCallbackResponse
 
   "Called when the plugin is disabled by a project."
   jetPluginDisable(projectId: String!, envId: String!, instanceId: String!): JetPluginCallbackResponse
 }
 
-type JetPluginCallbackResponseOk implements JetPluginCallbackResponse {
-  message: String
-  extensions: String
+input JetPluginEnableConfig {
+  value: String
 }

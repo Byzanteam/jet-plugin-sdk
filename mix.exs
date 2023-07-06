@@ -20,7 +20,7 @@ defmodule JetPluginSdk.MixProject do
     [
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
-      {:absinthe, "~> 1.7", only: [:dev, :test], runtime: false}
+      {:absinthe, "~> 1.7"}
     ]
   end
 
