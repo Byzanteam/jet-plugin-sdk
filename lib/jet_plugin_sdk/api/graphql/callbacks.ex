@@ -5,21 +5,32 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
     common_objects()
   end
 
-  defmacro def_plugin_callback_queries(resolver_module) do
+  defmacro def_plugin_callback_queries(opts) do
+    resolver = Keyword.fetch!(opts, :resolver)
+
     [
-      health_check(resolver_module)
+      health_check(resolver)
     ]
   end
 
-  defmacro def_plugin_callback_mutations(resolver_module) do
-    [
-      initialize(resolver_module),
-      enable(resolver_module),
-      disable(resolver_module)
-    ]
+  defmacro def_plugin_callback_mutations(opts) do
+    resolver = Keyword.fetch!(opts, :resolver)
+
+    if Keyword.get(opts, :def_enable, true) do
+      [
+        initialize(resolver),
+        enable(resolver),
+        disable(resolver)
+      ]
+    else
+      [
+        initialize(resolver),
+        disable(resolver)
+      ]
+    end
   end
 
-  defp initialize(resolver_module) do
+  defp initialize(resolver) do
     quote location: :keep do
       @desc """
       Called when the plugin is discovered by Jet. The plugin should respond
@@ -35,32 +46,40 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
         """
         arg :access_key, non_null(:string)
 
-        resolve &unquote(resolver_module).initialize/2
+        resolve &unquote(resolver).initialize/2
       end
     end
   end
 
-  defp enable(resolver_module) do
+  defp enable(resolver) do
     quote location: :keep do
+      require unquote(__MODULE__)
+
       @desc """
       Called when the plugin is enabled by a project.
       """
       field :jet_plugin_enable, type: :jet_plugin_callback_response do
-        arg :project_id, non_null(:string)
-        arg :env_id, non_null(:string)
-        arg :instance_id, non_null(:string)
+        unquote(__MODULE__).enable_arguments()
 
-        @desc """
-        Serialized JSON data.
-        """
-        arg :config, :string
-
-        resolve &unquote(resolver_module).enable/2
+        resolve &unquote(resolver).enable/2
       end
     end
   end
 
-  defp disable(resolver_module) do
+  defmacro enable_arguments do
+    quote location: :keep do
+      arg :project_id, non_null(:string)
+      arg :env_id, non_null(:string)
+      arg :instance_id, non_null(:string)
+
+      @desc """
+      Serialized JSON data.
+      """
+      arg :config, :string
+    end
+  end
+
+  defp disable(resolver) do
     quote location: :keep do
       @desc """
       Called when the plugin is disabled by a project.
@@ -70,15 +89,15 @@ defmodule JetPluginSDK.API.GraphQL.Callbacks do
         arg :env_id, non_null(:string)
         arg :instance_id, non_null(:string)
 
-        resolve &unquote(resolver_module).disable/2
+        resolve &unquote(resolver).disable/2
       end
     end
   end
 
-  defp health_check(resolver_module) do
+  defp health_check(resolver) do
     quote location: :keep do
       field :jet_plugin_health_check, type: :jet_plugin_callback_response do
-        resolve &unquote(resolver_module).health_check/2
+        resolve &unquote(resolver).health_check/2
       end
     end
   end

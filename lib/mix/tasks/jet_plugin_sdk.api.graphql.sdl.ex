@@ -40,11 +40,11 @@ defmodule Mix.Tasks.JetPluginSdk.Api.Graphql.Sdl do
       def_plugin_objects()
 
       object :jet_plugin_queries do
-        def_plugin_callback_queries(unquote(resolver_module))
+        def_plugin_callback_queries(resolver: unquote(resolver_module))
       end
 
       object :jet_plugin_mutations do
-        def_plugin_callback_mutations(unquote(resolver_module))
+        def_plugin_callback_mutations(resolver: unquote(resolver_module))
       end
     end
   end
