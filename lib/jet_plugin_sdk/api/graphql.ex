@@ -194,13 +194,15 @@ defmodule JetPluginSDK.API.GraphQL do
 
   defp schema do
     quote location: :keep do
-      query name: "JetPluginQuery" do
+      # https://github.com/absinthe-graphql/absinthe/blob/3c102f044138c3edc86c45a989bba6b7da5d9361/lib/absinthe/phase/schema/introspection.ex#L40C11-L40C12
+      # use default name for introspection
+      query do
         field :jet_plugin_health_check, type: :jet_plugin_callback_response do
           resolve &__MODULE__.health_check/2
         end
       end
 
-      mutation name: "JetPluginMutation" do
+      mutation do
         @desc """
         Called when the plugin is discovered by Jet. The plugin should respond
         immediately with plugin info and calls Jet's `plugin_initialized` api
