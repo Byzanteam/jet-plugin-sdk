@@ -73,7 +73,7 @@ defmodule JetPluginSDK.API.GraphQL do
                 access_key: String.t()
               },
               resolution()
-            ) :: {:ok, callback_response()} | {:error, term()}
+            ) :: {:ok, manifest()} | {:error, term()}
   @callback enable(
               args :: %{
                 project_id: String.t(),
