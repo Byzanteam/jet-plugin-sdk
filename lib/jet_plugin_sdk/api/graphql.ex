@@ -5,7 +5,19 @@ defmodule JetPluginSDK.API.GraphQL do
   ## define schema
   ```elixir
   defmodule MySchema do
-    use JetPluginSDK.API.GraphQL
+    use JetPluginSDK.API.GraphQL,
+      query_fields: [
+        do:
+          field :some_query, type: :string do
+            resolve &__MODULE__.some_query/2
+          end
+      ],
+      mutation_fields: [
+        do:
+          field :some_mutation, type: :string do
+            resolve &__MODULE__.some_mutation/2
+          end
+      ]
 
     # define input_object for enable_config
     enable_config do
@@ -92,7 +104,7 @@ defmodule JetPluginSDK.API.GraphQL do
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
 
-  defmacro __using__(_opts) do
+  defmacro __using__(opts) do
     behaviour =
       quote location: :keep do
         use Absinthe.Schema
@@ -105,7 +117,7 @@ defmodule JetPluginSDK.API.GraphQL do
     [
       behaviour,
       types(),
-      schema()
+      schema(opts)
     ]
   end
 
@@ -192,7 +204,10 @@ defmodule JetPluginSDK.API.GraphQL do
     end
   end
 
-  defp schema do
+  defp schema(opts) do
+    query_fields = Keyword.get(opts, :query_fields)
+    mutation_fields = Keyword.get(opts, :mutation_fields)
+
     quote location: :keep do
       # https://github.com/absinthe-graphql/absinthe/blob/3c102f044138c3edc86c45a989bba6b7da5d9361/lib/absinthe/phase/schema/introspection.ex#L40C11-L40C12
       # use default name for introspection
@@ -200,6 +215,8 @@ defmodule JetPluginSDK.API.GraphQL do
         field :jet_plugin_health_check, type: :jet_plugin_callback_response do
           resolve &__MODULE__.health_check/2
         end
+
+        unquote(query_fields)
       end
 
       mutation do
@@ -242,6 +259,8 @@ defmodule JetPluginSDK.API.GraphQL do
 
           resolve &__MODULE__.disable/2
         end
+
+        unquote(mutation_fields)
       end
     end
   end
