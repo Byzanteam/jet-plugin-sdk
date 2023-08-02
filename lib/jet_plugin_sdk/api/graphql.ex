@@ -207,6 +207,7 @@ defmodule JetPluginSDK.API.GraphQL do
   defp schema(opts) do
     query_fields = Keyword.get(opts, :query_fields)
     mutation_fields = Keyword.get(opts, :mutation_fields)
+    extra_enable_args = Keyword.get(opts, :extra_enable_args)
 
     quote location: :keep do
       # https://github.com/absinthe-graphql/absinthe/blob/3c102f044138c3edc86c45a989bba6b7da5d9361/lib/absinthe/phase/schema/introspection.ex#L40C11-L40C12
@@ -245,6 +246,8 @@ defmodule JetPluginSDK.API.GraphQL do
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
           arg :config, non_null(:jet_plugin_enable_config)
+
+          unquote(extra_enable_args)
 
           resolve &__MODULE__.enable/2
         end
