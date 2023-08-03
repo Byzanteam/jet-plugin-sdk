@@ -80,10 +80,7 @@ defmodule JetPluginSDK.API.GraphQL do
             ) ::
               {:ok, callback_response()} | {:error, term()}
   @callback initialize(
-              args :: %{
-                jet_api_endpoint: String.t(),
-                access_key: String.t()
-              },
+              args :: %{},
               resolution()
             ) :: {:ok, manifest()} | {:error, term()}
   @callback enable(
@@ -226,14 +223,6 @@ defmodule JetPluginSDK.API.GraphQL do
         to finish initialization.
         """
         field :jet_plugin_initialize, type: :jet_plugin_manifest do
-          arg :jet_api_endpoint, non_null(:string)
-
-          @desc """
-          All calls to Jet's APIs require this access_key. So it should be
-          persisted to local storage of the plugin.
-          """
-          arg :access_key, non_null(:string)
-
           resolve &__MODULE__.initialize/2
         end
 

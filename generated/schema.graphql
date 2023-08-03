@@ -1,6 +1,6 @@
 schema {
-  mutation: JetPluginMutation
-  query: JetPluginQuery
+  mutation: RootMutationType
+  query: RootQueryType
 }
 
 type JetPluginManifest {
@@ -41,25 +41,17 @@ type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse
   expected: String!
 }
 
-type JetPluginQuery {
+type RootQueryType {
   jetPluginHealthCheck: JetPluginCallbackResponse
 }
 
-type JetPluginMutation {
+type RootMutationType {
   """
   Called when the plugin is discovered by Jet. The plugin should respond
   immediately with plugin info and calls Jet's `plugin_initialized` api
   to finish initialization.
   """
-  jetPluginInitialize(
-    jetApiEndpoint: String!
-
-    """
-    All calls to Jet's APIs require this access_key. So it should be
-    persisted to local storage of the plugin.
-    """
-    accessKey: String!
-  ): JetPluginManifest
+  jetPluginInitialize: JetPluginManifest
 
   "Called when the plugin is enabled by a project."
   jetPluginEnable(projectId: String!, envId: String!, instanceId: String!, config: JetPluginEnableConfig!): JetPluginCallbackResponse
