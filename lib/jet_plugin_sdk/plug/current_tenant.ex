@@ -8,13 +8,31 @@ defmodule JetPluginSDK.Plug.CurrentTenant do
   @impl Plug
   def init(opts) do
     with(
-      {:ok, key_provider} <- Keyword.fetch(opts, :key_provider),
-      {:module, _module} <- Code.ensure_compiled(key_provider)
+      {:ok, key_provider} <- fetch_and_normalize_key_provider(opts),
+      true <- ensure_compiled(key_provider)
     ) do
       [key_provider: key_provider]
     else
-      _otherwise -> raise "Invalid key key_provider"
+      _otherwise -> raise "Invalid key_provider"
     end
+  end
+
+  defp fetch_and_normalize_key_provider(opts) do
+    case Keyword.fetch(opts, :key_provider) do
+      {:ok, module} when is_atom(module) ->
+        {:ok, {module, :fetch_key!}}
+
+      {:ok, {module, fun} = key_provider} when is_atom(module) and is_atom(fun) ->
+        {:ok, key_provider}
+
+      _otherwise ->
+        :error
+    end
+  end
+
+  defp ensure_compiled({module, fun}) do
+    match?({:module, _module}, Code.ensure_compiled(module)) and
+      function_exported?(module, fun, 0)
   end
 
   @impl Plug
