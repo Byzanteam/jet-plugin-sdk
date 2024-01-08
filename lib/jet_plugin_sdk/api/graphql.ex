@@ -56,6 +56,7 @@ defmodule JetPluginSDK.API.GraphQL do
   @type capability() :: database_capability()
   @type manifest() :: %{
           optional(:description) => String.t(),
+          endpoint: String.t(),
           version: String.t(),
           capabilities: [capability()]
         }
@@ -139,6 +140,7 @@ defmodule JetPluginSDK.API.GraphQL do
     quote location: :keep do
       object :jet_plugin_manifest do
         field :description, :string
+        field :endpoint, non_null(:string)
         field :version, non_null(:string)
         field :capabilities, list_of(non_null(:jet_plugin_capability))
       end
