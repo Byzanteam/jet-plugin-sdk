@@ -22,7 +22,8 @@ defmodule JetPluginSdk.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:absinthe, "~> 1.7"},
       {:joken, "~> 2.6"},
-      {:plug, "~> 1.14"}
+      {:plug, "~> 1.14"},
+      {:absinthe_client, "~> 0.1.0"}
     ]
   end
 
