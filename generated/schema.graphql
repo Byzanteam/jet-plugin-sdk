@@ -4,8 +4,8 @@ schema {
 }
 
 type JetPluginManifest {
+  apiEndpoint: String
   description: String
-  endpoint: String!
   version: String!
   capabilities: [JetPluginCapability!]
 }
