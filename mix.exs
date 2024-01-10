@@ -12,7 +12,8 @@ defmodule JetPluginSdk.MixProject do
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:mix, :absinthe]
       ],
-      aliases: aliases()
+      aliases: aliases(),
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
 
@@ -32,4 +33,7 @@ defmodule JetPluginSdk.MixProject do
       "code.check": ["format --check-formatted", "credo --strict", "dialyzer"]
     ]
   end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 end

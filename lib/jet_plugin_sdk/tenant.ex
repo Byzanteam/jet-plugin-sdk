@@ -2,6 +2,22 @@ defmodule JetPluginSDK.Tenant do
   @moduledoc false
 
   @type tenant_id() :: String.t()
+  @type config() :: nil | map()
+
+  @enforce_keys [:id, :state]
+  defstruct [
+    :id,
+    :config,
+    :state,
+    capabilities: []
+  ]
+
+  @type t() :: %__MODULE__{
+          id: tenant_id(),
+          config: config(),
+          capabilities: [map()],
+          state: :enabled | :disabled
+        }
 
   @spec build_tenant_id(
           project_id :: String.t(),
