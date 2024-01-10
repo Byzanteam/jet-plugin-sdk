@@ -24,7 +24,8 @@ defmodule JetPluginSdk.MixProject do
       {:absinthe, "~> 1.7"},
       {:joken, "~> 2.6"},
       {:plug, "~> 1.14"},
-      {:absinthe_client, "~> 0.1.0"}
+      {:absinthe_client, "~> 0.1.0"},
+      {:mimic, "~> 1.7", only: :test}
     ]
   end
 

@@ -27,9 +27,7 @@ defmodule JetPluginSDK.JetClient do
         }
 
   @spec fetch_instances(config()) ::
-          {:ok, [{String.t(), map(), String.t()}]}
-          | {:error, Req.Response.t()}
-          | GraphQLClient.error()
+          {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
   def fetch_instances(config) do
     instances_query = """
     {
@@ -50,8 +48,15 @@ defmodule JetPluginSDK.JetClient do
     }
     """
 
-    with({:ok, %{status: 200, body: body}} <- query(instances_query, config)) do
-      {:ok, body |> get_in(["data", "instances"]) |> build_instances()}
+    case query(instances_query, config) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, body |> get_in(["data", "instances"]) |> build_instances()}
+
+      {:ok, resp} ->
+        {:error, resp}
+
+      otherwise ->
+        otherwise
     end
   end
 
@@ -107,8 +112,15 @@ defmodule JetPluginSDK.JetClient do
 
     variables = %{"projectId" => project_id, "environmentId" => env_id, "id" => instance_id}
 
-    with({:ok, %{status: 200, body: body}} <- query(instance_query, variables, config)) do
-      {:ok, get_in(body, ["data", "instance", "capabilities"])}
+    case query(instance_query, variables, config) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, get_in(body, ["data", "instance", "capabilities"])}
+
+      {:ok, resp} ->
+        {:error, resp}
+
+      otherwise ->
+        otherwise
     end
   end
 end
