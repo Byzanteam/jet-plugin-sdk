@@ -165,15 +165,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         Logger.debug(describe(state) <> " is initialized with tenant: #{inspect(tenant)}.")
         {:ok, %{state | tenant: tenant, tenant_state: tenant_state}}
 
-      {:ok, tenant, tenant_state, {:continue, continue_arg}} ->
+      {:ok, tenant, tenant_state, timeout_or_hibernate_or_continue} ->
         Logger.debug(describe(state) <> " is initialized with tenant: #{inspect(tenant)}.")
 
         {:ok, %{state | tenant: tenant, tenant_state: tenant_state},
-         {:continue, {:handle_continue, continue_arg}}}
-
-      {:ok, tenant, tenant_state, timeout_or_hibernate} ->
-        Logger.debug(describe(state) <> " is initialized with tenant: #{inspect(tenant)}.")
-        {:ok, %{state | tenant: tenant, tenant_state: tenant_state}, timeout_or_hibernate}
+         timeout_or_hibernate_or_continue}
 
       :ignore ->
         :ignore
@@ -256,7 +252,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   @impl GenServer
-  def handle_continue({:handle_continue, continue_arg}, %__MODULE__{} = state) do
+  def handle_continue(continue_arg, %__MODULE__{} = state) do
     wrap_reply(continue_arg, state.tenant_module, :handle_continue, state)
   end
 
@@ -265,12 +261,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:reply, reply, tenant_state} ->
         {:reply, reply, %{state | tenant_state: tenant_state}}
 
-      {:reply, reply, tenant_state, {:continue, continue_arg}} ->
-        {:reply, reply, %{state | tenant_state: tenant_state},
-         {:continue, {:handle_continue, continue_arg}}}
-
-      {:reply, reply, tenant_state, timeout_or_hibernate} ->
-        {:reply, reply, %{state | tenant_state: tenant_state}, timeout_or_hibernate}
+      {:reply, reply, tenant_state, timeout_or_hibernate_or_continue} ->
+        {:reply, reply, %{state | tenant_state: tenant_state}, timeout_or_hibernate_or_continue}
     end
   end
 
@@ -279,12 +271,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:noreply, tenant_state} ->
         {:noreply, %{state | tenant_state: tenant_state}}
 
-      {:noreply, tenant_state, {:continue, continue_arg}} ->
-        {:noreply, %{state | tenant_state: tenant_state},
-         {:continue, {:handle_continue, continue_arg}}}
-
-      {:noreply, tenant_state, timeout_or_hibernate} ->
-        {:noreply, %{state | tenant_state: tenant_state}, timeout_or_hibernate}
+      {:noreply, tenant_state, timeout_or_hibernate_or_continue} ->
+        {:noreply, %{state | tenant_state: tenant_state}, timeout_or_hibernate_or_continue}
     end
   end
 
