@@ -6,11 +6,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
   alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
 
   setup do
-    start_supervised!(JetPluginSDK.TenantMan.Supervisor)
-    :ok
-  end
-
-  setup do
     %{
       tenant: %JetPluginSDK.Tenant{
         id: generate_tenant_id(),
@@ -72,9 +67,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
                  JetPluginSDK.Support.Tenant.ValidateConfig,
                  invalid_tenant
                )
-
-      assert DynamicSupervisor.count_children(JetPluginSDK.TenantMan.Tenants.Supervisor.name()).active ===
-               1
 
       assert Process.alive?(pid)
     end

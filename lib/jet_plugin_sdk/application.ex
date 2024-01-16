@@ -8,13 +8,9 @@ defmodule JetPluginSDK.Application do
     Supervisor.start_link(children(), strategy: :one_for_one, name: __MODULE__)
   end
 
-  if Mix.env() === :test do
-    def children, do: []
-  else
-    def children do
-      args = Application.get_env(:jet_plugin_sdk, JetPluginSDK.TenantMan, [])
+  def children do
+    args = Application.get_env(:jet_plugin_sdk, JetPluginSDK.TenantMan, [])
 
-      [{JetPluginSDK.TenantMan.Supervisor, args}]
-    end
+    [{JetPluginSDK.TenantMan.Supervisor, args}]
   end
 end
