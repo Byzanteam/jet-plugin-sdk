@@ -5,12 +5,16 @@ defmodule JetPluginSDK.Application do
 
   @impl Application
   def start(_type, _args) do
-    args = Application.get_env(:jet_plugin_sdk, JetPluginSDK.TenantMan, [])
+    Supervisor.start_link(children(), strategy: :one_for_one, name: __MODULE__)
+  end
 
-    children = [
-      {JetPluginSDK.TenantMan.Supervisor, args}
-    ]
+  if Mix.env() === :test do
+    def children, do: []
+  else
+    def children do
+      args = Application.get_env(:jet_plugin_sdk, JetPluginSDK.TenantMan, [])
 
-    Supervisor.start_link(children, strategy: :one_for_one, name: __MODULE__)
+      [{JetPluginSDK.TenantMan.Supervisor, args}]
+    end
   end
 end
