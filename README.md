@@ -1,4 +1,4 @@
-# JetPluginSdk
+# JetPluginSDK
 
 **TODO: Add description**
 
