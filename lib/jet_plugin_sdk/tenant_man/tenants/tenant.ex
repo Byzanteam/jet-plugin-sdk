@@ -13,8 +13,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @callback init(tenant :: tenant_schema()) ::
               {:ok, tenant_schema(), state()}
-              | {:ok, tenant_schema(), state(), timeout() | :hibernate,
-                 {:continue, continue_arg :: term()}}
+              | {:ok, tenant_schema(), state(),
+                 timeout() | :hibernate | {:continue, continue_arg :: term()}}
               | :ignore
               | {:stop, reason :: any()}
 
