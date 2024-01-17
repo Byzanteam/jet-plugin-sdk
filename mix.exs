@@ -1,4 +1,4 @@
-defmodule JetPluginSdk.MixProject do
+defmodule JetPluginSDK.MixProject do
   use Mix.Project
 
   def project do
@@ -14,6 +14,13 @@ defmodule JetPluginSdk.MixProject do
       ],
       aliases: aliases(),
       elixirc_paths: elixirc_paths(Mix.env())
+    ]
+  end
+
+  def application do
+    [
+      mod: {JetPluginSDK.Application, []},
+      extra_applications: [:logger, :runtime_tools]
     ]
   end
 

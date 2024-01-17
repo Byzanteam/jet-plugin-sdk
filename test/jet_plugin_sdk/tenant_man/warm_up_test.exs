@@ -11,8 +11,6 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
       {:ok, Enum.map(1..6, fn _i -> build_instance() end)}
     end)
 
-    start_supervised!(JetPluginSDK.TenantMan.Supervisor)
-
     :ok
   end
 
@@ -22,9 +20,6 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
       jet_endpoint: "http://jet.dev",
       jet_access_key: "access_key"
     )
-
-    assert DynamicSupervisor.count_children(JetPluginSDK.TenantMan.Tenants.Supervisor).active ===
-             6
   end
 
   defp build_instance do

@@ -1,3 +1,3 @@
-defmodule JetPluginSdk do
+defmodule JetPluginSDK do
   @moduledoc false
 end

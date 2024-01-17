@@ -10,11 +10,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   alias JetPluginSDK.TenantMan.Tenants.Tenant
 
   setup do
-    start_supervised!(JetPluginSDK.TenantMan.Supervisor)
-    :ok
-  end
-
-  setup do
     %{
       tenant: %JetPluginSDK.Tenant{
         id: generate_tenant_id(),
