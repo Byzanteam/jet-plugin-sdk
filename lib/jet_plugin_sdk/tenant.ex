@@ -5,6 +5,7 @@ defmodule JetPluginSDK.Tenant do
   @type config() :: nil | map()
 
   @enforce_keys [:id, :state]
+
   defstruct [
     :id,
     :config,
