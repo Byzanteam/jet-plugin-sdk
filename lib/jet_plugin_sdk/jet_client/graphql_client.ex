@@ -22,9 +22,14 @@ defmodule JetPluginSDK.GraphQLClient do
   def query(url, query_string, opts \\ []) do
     timeout = Keyword.get(opts, :timeout, 15_000)
     variables = Keyword.get(opts, :variables, %{})
+    headers = Keyword.get(opts, :headers, [])
 
     req =
-      [url: url, connect_options: [timeout: timeout]]
+      [
+        url: url,
+        connect_options: [timeout: timeout],
+        headers: headers
+      ]
       |> Req.new()
       |> AbsintheClient.attach(graphql: {query_string, variables})
       |> accept_graphql_json()
