@@ -1,9 +1,9 @@
 defmodule JetPluginSDK.Plug.CurrentTenant do
   @moduledoc false
 
-  @behaviour Plug
+  use Plug.Builder
 
-  @token_header "X-Jet-Plugin-API-Key"
+  @token_header "x-jet-plugin-api-key"
 
   @impl Plug
   def init(opts) do
@@ -41,7 +41,7 @@ defmodule JetPluginSDK.Plug.CurrentTenant do
       {:ok, token} <- extract_api_key(conn),
       {:ok, tenant} <- extract_tenant(token, opts)
     ) do
-      Plug.Conn.put_private(conn, :jet_plugin_tenant, tenant)
+      JetPluginSDK.Tenant.assign_tenant(conn, tenant)
     else
       _otherwise -> conn
     end
