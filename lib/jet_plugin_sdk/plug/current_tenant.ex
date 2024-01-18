@@ -3,7 +3,19 @@ defmodule JetPluginSDK.Plug.CurrentTenant do
 
   use Plug.Builder
 
+  @tenant_key :jet_plugin_tenant
+
   @token_header "x-jet-plugin-api-key"
+
+  @spec assign_tenant(conn :: conn, tenant :: map()) :: conn when conn: Plug.Conn.t()
+  def assign_tenant(conn, tenant) do
+    put_private(conn, @tenant_key, tenant)
+  end
+
+  @spec fetch_tenant(conn :: Plug.Conn.t()) :: {:ok, map()} | :error
+  def fetch_tenant(conn) do
+    Map.fetch(conn.private, @tenant_key)
+  end
 
   @impl Plug
   def init(opts) do
@@ -41,7 +53,7 @@ defmodule JetPluginSDK.Plug.CurrentTenant do
       {:ok, token} <- extract_api_key(conn),
       {:ok, tenant} <- extract_tenant(token, opts)
     ) do
-      JetPluginSDK.Tenant.assign_tenant(conn, tenant)
+      assign_tenant(conn, tenant)
     else
       _otherwise -> conn
     end

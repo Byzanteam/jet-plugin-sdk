@@ -6,8 +6,6 @@ defmodule JetPluginSDK.Tenant do
 
   @enforce_keys [:id, :state]
 
-  @tenant_key :jet_plugin_tenant
-
   defstruct [
     :id,
     :config,
@@ -22,11 +20,6 @@ defmodule JetPluginSDK.Tenant do
           state: :enabled | :disabled
         }
 
-  @spec assign_tenant(conn :: conn, tenant :: map()) :: conn when conn: Plug.Conn.t()
-  def assign_tenant(conn, tenant) do
-    Plug.Conn.put_private(conn, @tenant_key, tenant)
-  end
-
   @spec build_tenant_id(
           project_id :: String.t(),
           environment_id :: String.t(),
@@ -34,11 +27,6 @@ defmodule JetPluginSDK.Tenant do
         ) :: tenant_id()
   def build_tenant_id(project_id, environment_id, instance_id) do
     "#{project_id}_#{environment_id}_#{instance_id}"
-  end
-
-  @spec fetch_tenant(conn :: Plug.Conn.t()) :: {:ok, map()} | :error
-  def fetch_tenant(conn) do
-    Map.fetch(conn.private, @tenant_key)
   end
 
   @spec split_tenant_id(tenant_id()) ::
