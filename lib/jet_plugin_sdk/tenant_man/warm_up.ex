@@ -51,7 +51,11 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
   end
 
   defp start_tenants(instances, tenant_module) do
-    Enum.each(instances, fn instance ->
+    instances
+    |> Stream.filter(fn instance ->
+      normalize_state(instance.state) === :enabled
+    end)
+    |> Enum.each(fn instance ->
       %{
         tenant_id: tenant_id,
         config: config,
@@ -74,6 +78,6 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
     end)
   end
 
+  defp normalize_state("CREATED"), do: :created
   defp normalize_state("ENABLED"), do: :enabled
-  defp normalize_state("DISABLED"), do: :disabled
 end
