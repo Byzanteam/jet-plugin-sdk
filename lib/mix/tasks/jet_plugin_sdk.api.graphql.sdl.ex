@@ -35,6 +35,9 @@ defmodule Mix.Tasks.JetPluginSdk.Api.Graphql.Sdl do
       def enable(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
+      def update(_args, _resolution), do: nil
+
+      @impl JetPluginSDK.API.GraphQL
       def disable(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
