@@ -93,6 +93,17 @@ defmodule JetPluginSDK.API.GraphQL do
               },
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
+
+  @callback update(
+              args :: %{
+                project_id: String.t(),
+                env_id: String.t(),
+                instance_id: String.t(),
+                config: map()
+              },
+              resolution()
+            ) :: {:ok, callback_response()} | {:error, term()}
+
   @callback disable(
               args :: %{
                 project_id: String.t(),
@@ -106,6 +117,7 @@ defmodule JetPluginSDK.API.GraphQL do
     behaviour =
       quote location: :keep do
         use Absinthe.Schema
+
         import JetPluginSDK.API.GraphQL, only: [enable_config: 1]
 
         # 这里必须放到 `use Absinthe.Schema` 后面，否则编译器不会保留 Absinthe.Scheme 的 behaviour
@@ -238,6 +250,15 @@ defmodule JetPluginSDK.API.GraphQL do
           arg :config, non_null(:jet_plugin_enable_config)
 
           resolve &__MODULE__.enable/2
+        end
+
+        field :jet_plugin_update, type: :jet_plugin_callback_response do
+          arg :project_id, non_null(:string)
+          arg :env_id, non_null(:string)
+          arg :instance_id, non_null(:string)
+          arg :config, non_null(:jet_plugin_enable_config)
+
+          resolve &__MODULE__.update/2
         end
 
         @desc """
