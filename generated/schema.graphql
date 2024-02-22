@@ -55,14 +55,15 @@ type RootMutationType {
   jetPluginInitialize: JetPluginManifest
 
   "Called when the plugin is enabled by a project."
-  jetPluginEnable(projectId: String!, envId: String!, instanceId: String!, config: JetPluginEnableConfig!): JetPluginCallbackResponse
+  jetPluginEnable(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
 
-  jetPluginUpdate(projectId: String!, envId: String!, instanceId: String!, config: JetPluginEnableConfig!): JetPluginCallbackResponse
+  "Called when the plugin is updated by a project."
+  jetPluginUpdate(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
 
   "Called when the plugin is disabled by a project."
   jetPluginDisable(projectId: String!, envId: String!, instanceId: String!): JetPluginCallbackResponse
 }
 
-input JetPluginEnableConfig {
+input JetPluginConfig {
   value: String
 }

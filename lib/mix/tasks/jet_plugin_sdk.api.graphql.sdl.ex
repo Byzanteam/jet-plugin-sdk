@@ -24,7 +24,7 @@ defmodule Mix.Tasks.JetPluginSdk.Api.Graphql.Sdl do
     quote location: :keep do
       use JetPluginSDK.API.GraphQL
 
-      enable_config do
+      plugin_config do
         field :value, :string
       end
 
