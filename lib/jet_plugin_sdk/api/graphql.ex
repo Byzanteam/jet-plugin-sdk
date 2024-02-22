@@ -19,8 +19,8 @@ defmodule JetPluginSDK.API.GraphQL do
           end
       ]
 
-    # define input_object for enable_config
-    enable_config do
+    # define input_object for plugin_config
+    plugin_config do
       field :foo, :string
     end
 
@@ -32,6 +32,11 @@ defmodule JetPluginSDK.API.GraphQL do
     @impl JetPluginSDK.API.GraphQL
     def enable(_args, _resolution) do
       # implement enable here
+    end
+
+    @impl JetPluginSDK.API.GraphQL
+    def update(_args, _resolution) do
+    # implement update here
     end
 
     @impl JetPluginSDK.API.GraphQL
@@ -78,12 +83,13 @@ defmodule JetPluginSDK.API.GraphQL do
   @callback health_check(
               args :: %{},
               resolution()
-            ) ::
-              {:ok, callback_response()} | {:error, term()}
+            ) :: {:ok, callback_response()} | {:error, term()}
+
   @callback initialize(
               args :: %{},
               resolution()
             ) :: {:ok, manifest()} | {:error, term()}
+
   @callback enable(
               args :: %{
                 project_id: String.t(),
@@ -118,7 +124,7 @@ defmodule JetPluginSDK.API.GraphQL do
       quote location: :keep do
         use Absinthe.Schema
 
-        import JetPluginSDK.API.GraphQL, only: [enable_config: 1]
+        import JetPluginSDK.API.GraphQL, only: [plugin_config: 1]
 
         # 这里必须放到 `use Absinthe.Schema` 后面，否则编译器不会保留 Absinthe.Scheme 的 behaviour
         @behaviour JetPluginSDK.API.GraphQL
@@ -135,14 +141,14 @@ defmodule JetPluginSDK.API.GraphQL do
   Jet should call `jet_plugin_initialized` with enable config defined in this type.
 
   ```elixir
-    enable_config do
+    plugin_config do
       field :foo, :string
     end
   ```
   """
-  defmacro enable_config(block) do
+  defmacro plugin_config(block) do
     quote location: :keep do
-      input_object :jet_plugin_enable_config do
+      input_object :jet_plugin_config do
         unquote(block)
       end
     end
@@ -247,16 +253,19 @@ defmodule JetPluginSDK.API.GraphQL do
           arg :project_id, non_null(:string)
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
-          arg :config, non_null(:jet_plugin_enable_config)
+          arg :config, non_null(:jet_plugin_config)
 
           resolve &__MODULE__.enable/2
         end
 
+        @desc """
+        Called when the plugin is updated by a project.
+        """
         field :jet_plugin_update, type: :jet_plugin_callback_response do
           arg :project_id, non_null(:string)
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
-          arg :config, non_null(:jet_plugin_enable_config)
+          arg :config, non_null(:jet_plugin_config)
 
           resolve &__MODULE__.update/2
         end
