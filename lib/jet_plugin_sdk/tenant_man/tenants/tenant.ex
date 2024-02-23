@@ -193,9 +193,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case state.tenant_module.handle_config_updation(new_config, from, state.tenant_state) do
       reply when is_tuple(reply) and tuple_size(reply) in [4, 5] and elem(reply, 0) === :reply ->
-        [:reply, reply, config | extra_args] = Tuple.to_list(reply)
-        state = Map.update!(state, :tenant, &Map.put(&1, :config, config))
-        reply = List.to_tuple([:reply, reply | extra_args])
+        [:reply, reply, config, tenant_state | extra_args] = Tuple.to_list(reply)
+
+        state =
+          state
+          |> Map.put(:tenant_state, tenant_state)
+          |> Map.update!(:tenant, &Map.put(&1, :config, config))
+
+        reply = List.to_tuple([:reply, reply, tenant_state | extra_args])
 
         Logger.debug(describe(state) <> " is updated with new config: #{inspect(config)}.")
 
@@ -203,9 +208,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
       reply
       when is_tuple(reply) and tuple_size(reply) in [3, 4] and elem(reply, 0) === :noreply ->
-        [:noreply, config | extra_args] = Tuple.to_list(reply)
-        state = Map.update!(state, :tenant, &Map.put(&1, :config, config))
-        reply = List.to_tuple([:noreply | extra_args])
+        [:noreply, config, tenant_state | extra_args] = Tuple.to_list(reply)
+
+        state =
+          state
+          |> Map.put(:tenant_state, tenant_state)
+          |> Map.update!(:tenant, &Map.put(&1, :config, config))
+
+        reply = List.to_tuple([:noreply, tenant_state | extra_args])
 
         Logger.debug(describe(state) <> " is updated with new config: #{inspect(config)}.")
 
