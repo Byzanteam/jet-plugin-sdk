@@ -14,7 +14,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
       tenant: %JetPluginSDK.Tenant{
         id: generate_tenant_id(),
         config: %{name: "bar"},
-        state: :enabled
+        state: :running
       }
     }
   end

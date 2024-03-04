@@ -17,7 +17,7 @@ defmodule JetPluginSDK.Tenant do
           id: tenant_id(),
           config: config(),
           capabilities: [map()],
-          state: :enabled | :disabled
+          state: :installing | :running | :updating
         }
 
   @spec build_tenant_id(
