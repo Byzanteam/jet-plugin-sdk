@@ -32,7 +32,7 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
       id: inst_id,
       config: %{"foo" => generate_id()},
       capabilities: [],
-      state: "ENABLED"
+      state: "RUNNING"
     }
   end
 

@@ -10,7 +10,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
       tenant: %JetPluginSDK.Tenant{
         id: generate_tenant_id(),
         config: %{foo: "bar"},
-        state: :enabled
+        state: :running
       }
     }
   end
@@ -51,7 +51,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
       valid_tenant = %JetPluginSDK.Tenant{
         id: generate_tenant_id(),
         config: %{name: "foobar"},
-        state: :enabled
+        state: :running
       }
 
       assert {:ok, pid} =
