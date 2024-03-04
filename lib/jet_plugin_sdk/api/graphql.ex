@@ -30,8 +30,8 @@ defmodule JetPluginSDK.API.GraphQL do
     end
 
     @impl JetPluginSDK.API.GraphQL
-    def enable(_args, _resolution) do
-      # implement enable here
+    def install(_args, _resolution) do
+      # implement install here
     end
 
     @impl JetPluginSDK.API.GraphQL
@@ -40,8 +40,8 @@ defmodule JetPluginSDK.API.GraphQL do
     end
 
     @impl JetPluginSDK.API.GraphQL
-    def disable(_args, _resolution) do
-      # implement disable here
+    def uninstall(_args, _resolution) do
+      # implement uninstall here
     end
 
     @impl JetPluginSDK.API.GraphQL
@@ -90,7 +90,7 @@ defmodule JetPluginSDK.API.GraphQL do
               resolution()
             ) :: {:ok, manifest()} | {:error, term()}
 
-  @callback enable(
+  @callback install(
               args :: %{
                 project_id: String.t(),
                 env_id: String.t(),
@@ -110,7 +110,7 @@ defmodule JetPluginSDK.API.GraphQL do
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
 
-  @callback disable(
+  @callback uninstall(
               args :: %{
                 project_id: String.t(),
                 env_id: String.t(),
@@ -138,7 +138,7 @@ defmodule JetPluginSDK.API.GraphQL do
   end
 
   @doc """
-  Jet should call `jet_plugin_initialized` with enable config defined in this type.
+  Jet should call `jet_plugin_install` and `jet_plugin_update` with config defined in this type.
 
   ```elixir
     plugin_config do
@@ -247,15 +247,15 @@ defmodule JetPluginSDK.API.GraphQL do
         end
 
         @desc """
-        Called when the plugin is enabled by a project.
+        Called when the plugin is installed by a project.
         """
-        field :jet_plugin_enable, type: :jet_plugin_callback_response do
+        field :jet_plugin_install, type: :jet_plugin_callback_response do
           arg :project_id, non_null(:string)
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
           arg :config, non_null(:jet_plugin_config)
 
-          resolve &__MODULE__.enable/2
+          resolve &__MODULE__.install/2
         end
 
         @desc """
@@ -271,14 +271,14 @@ defmodule JetPluginSDK.API.GraphQL do
         end
 
         @desc """
-        Called when the plugin is disabled by a project.
+        Called when the plugin is uninstalled by a project.
         """
-        field :jet_plugin_disable, type: :jet_plugin_callback_response do
+        field :jet_plugin_uninstall, type: :jet_plugin_callback_response do
           arg :project_id, non_null(:string)
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
 
-          resolve &__MODULE__.disable/2
+          resolve &__MODULE__.uninstall/2
         end
 
         unquote(mutation_fields)
