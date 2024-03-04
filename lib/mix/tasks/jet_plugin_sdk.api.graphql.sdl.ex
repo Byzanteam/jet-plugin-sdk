@@ -32,13 +32,13 @@ defmodule Mix.Tasks.JetPluginSdk.Api.Graphql.Sdl do
       def initialize(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
-      def enable(_args, _resolution), do: nil
+      def install(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
       def update(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
-      def disable(_args, _resolution), do: nil
+      def uninstall(_args, _resolution), do: nil
 
       @impl JetPluginSDK.API.GraphQL
       def health_check(_args, _resolution), do: nil
