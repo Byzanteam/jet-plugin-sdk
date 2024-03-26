@@ -1,4 +1,4 @@
-defmodule JetPluginSDK.Support.Tenant.ValidateConfig do
+defmodule JetPluginSDK.Support.Tenant.Async do
   @moduledoc false
 
   use JetPluginSDK.TenantMan.Tenants.Tenant
@@ -24,6 +24,10 @@ defmodule JetPluginSDK.Support.Tenant.ValidateConfig do
 
   @impl JetPluginSDK.TenantMan.Tenants.Tenant
   def handle_update(config, {_tenant, state}) do
+    {:async, {__MODULE__, :update_async, [config, state]}}
+  end
+
+  def update_async(config, state) do
     case cast_config(config) do
       %{errors: []} ->
         {:ok, %{state | config: config}}

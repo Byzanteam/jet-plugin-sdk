@@ -1,45 +1,25 @@
 defmodule JetPluginSDK.TenantMan.Registry do
   @moduledoc false
 
-  @type start_child_spec() :: {module(), Keyword.t()} | module()
+  alias JetPluginSDK.Tenant
 
-  @spec start_child(
-          name :: term(),
-          dynamic_supervisor :: Supervisor.supervisor(),
-          child_spec :: start_child_spec()
-        ) :: DynamicSupervisor.on_start_child()
-  def start_child(name, supervisor, child_spec) do
-    via_name = via_tuple(name)
+  @type name() :: GenServer.name()
 
-    child_spec =
-      case child_spec do
-        module when is_atom(module) ->
-          {module, name: via_name}
-
-        {module, args} when is_atom(module) and is_list(args) ->
-          {module, Keyword.put(args, :name, via_name)}
-      end
-
-    DynamicSupervisor.start_child(supervisor, child_spec)
+  @spec name(tenant_module :: module(), tenant_id :: Tenant.id()) :: name()
+  def name(tenant_module, tenant_id) do
+    {:via, Registry, {__MODULE__, {tenant_module, tenant_id}}}
   end
 
-  @spec via_tuple(name :: term()) :: tuple()
-  def via_tuple(name) do
-    {:via, Registry, {name(), name}}
-  end
-
-  @spec whereis_name(name :: term()) :: {:ok, pid()} | :error
-  def whereis_name(name) do
-    case Registry.lookup(name(), name) do
-      [{pid, _}] -> {:ok, pid}
-      [] -> :error
+  @spec whereis(tenant_module :: module(), tenant_id :: Tenant.id()) :: {:ok, pid()} | :error
+  def whereis(tenant_module, tenant_id) do
+    case Registry.whereis_name({__MODULE__, {tenant_module, tenant_id}}) do
+      :undefined -> :error
+      pid -> {:ok, pid}
     end
   end
 
-  @spec child_spec(term()) :: Supervisor.child_spec()
-  def child_spec(_arg) do
-    Registry.child_spec(keys: :unique, name: name())
+  @spec child_spec(opts :: keyword()) :: Supervisor.child_spec()
+  def child_spec(opts) do
+    Supervisor.child_spec({Registry, name: __MODULE__, keys: :unique}, opts)
   end
-
-  defp name, do: __MODULE__
 end
