@@ -17,7 +17,7 @@ defmodule JetPluginSDK.JetClient do
   end
 
   @type instance() :: %{
-          tenant_id: Tenant.tenant_id(),
+          tenant_id: Tenant.id(),
           project_id: String.t(),
           environment_id: String.t(),
           id: String.t(),
@@ -83,7 +83,7 @@ defmodule JetPluginSDK.JetClient do
     end)
   end
 
-  @spec fetch_tenant_database(Tenant.tenant_id(), config()) ::
+  @spec fetch_tenant_database(Tenant.id(), config()) ::
           {:ok, [capability :: map()]} | {:error, Req.Response.t()} | GraphQLClient.error()
   def fetch_tenant_database(tenant_id, config) do
     {project_id, env_id, instance_id} = Tenant.split_tenant_id(tenant_id)

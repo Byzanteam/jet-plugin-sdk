@@ -3,39 +3,19 @@ defmodule JetPluginSDK.TenantMan.Tenants.Supervisor do
 
   use DynamicSupervisor
 
-  alias JetPluginSDK.TenantMan.Tenants.Tenant
+  alias JetPluginSDK.TenantMan.Registry
 
-  @spec name() :: __MODULE__
-  def name, do: __MODULE__
+  @spec start_tenant(tenant_module :: module(), tenant :: JetPluginSDK.Tenant.t()) ::
+          DynamicSupervisor.on_start_child()
+  def start_tenant(tenant_module, tenant) do
+    args = [name: Registry.name(tenant_module, tenant.id), tenant: tenant]
 
-  @spec start_link(Keyword.t()) :: Supervisor.on_start()
-  def start_link(_args) do
-    DynamicSupervisor.start_link(__MODULE__, [], name: name())
+    DynamicSupervisor.start_child(__MODULE__, {tenant_module, args})
   end
 
-  @spec start_tenant(
-          tenant_id :: JetPluginSDK.Tenant.tenant_id(),
-          tenant_module :: module(),
-          tenant :: JetPluginSDK.Tenant.t()
-        ) :: {:ok, pid()} | {:error, term()}
-  def start_tenant(tenant_id, tenant_module, tenant) do
-    args = [
-      tenant_id: tenant_id,
-      tenant: tenant
-    ]
-
-    tenant_name = Tenant.name(tenant_module, tenant_id)
-
-    JetPluginSDK.TenantMan.Registry.start_child(tenant_name, name(), {tenant_module, args})
-  end
-
-  @spec whereis_tenant(
-          tenant_id :: JetPluginSDK.Tenant.tenant_id(),
-          tenant_module :: module()
-        ) :: {:ok, pid()} | :error
-  def whereis_tenant(tenant_id, tenant_module) do
-    tenant_name = Tenant.name(tenant_module, tenant_id)
-    JetPluginSDK.TenantMan.Registry.whereis_name(tenant_name)
+  @spec start_link(args :: keyword()) :: Supervisor.on_start()
+  def start_link(args) do
+    DynamicSupervisor.start_link(__MODULE__, args, name: __MODULE__)
   end
 
   @impl DynamicSupervisor

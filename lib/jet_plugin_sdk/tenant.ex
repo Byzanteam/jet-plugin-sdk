@@ -1,10 +1,12 @@
 defmodule JetPluginSDK.Tenant do
   @moduledoc false
 
-  @type tenant_id() :: String.t()
+  @type id() :: String.t()
   @type config() :: nil | map()
 
   @enforce_keys [:id, :state]
+
+  @delimiter "_"
 
   defstruct [
     :id,
@@ -14,7 +16,7 @@ defmodule JetPluginSDK.Tenant do
   ]
 
   @type t() :: %__MODULE__{
-          id: tenant_id(),
+          id: id(),
           config: config(),
           capabilities: [map()],
           state: :installing | :running | :updating
@@ -24,15 +26,15 @@ defmodule JetPluginSDK.Tenant do
           project_id :: String.t(),
           environment_id :: String.t(),
           instance_id :: String.t()
-        ) :: tenant_id()
+        ) :: id()
   def build_tenant_id(project_id, environment_id, instance_id) do
-    "#{project_id}_#{environment_id}_#{instance_id}"
+    Enum.join([project_id, environment_id, instance_id], @delimiter)
   end
 
-  @spec split_tenant_id(tenant_id()) ::
+  @spec split_tenant_id(id()) ::
           {project_id :: String.t(), environment_id :: String.t(), instance_id :: String.t()}
   def split_tenant_id(tenant_id) do
-    [project_id, environment_id, instance_id] = String.split(tenant_id, "_")
+    [project_id, environment_id, instance_id] = String.split(tenant_id, @delimiter)
     {project_id, environment_id, instance_id}
   end
 end

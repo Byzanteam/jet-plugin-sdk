@@ -3,25 +3,18 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
   @moduletag :unit
 
+  alias JetPluginSDK.Support.Tenant.Async, as: AsyncTenant
   alias JetPluginSDK.Support.Tenant.Naive, as: NaiveTenant
   alias JetPluginSDK.Support.Tenant.ValidateConfig, as: ValidateConfigTenant
 
   alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
   alias JetPluginSDK.TenantMan.Tenants.Tenant
 
-  setup do
-    %{
-      tenant: %JetPluginSDK.Tenant{
-        id: generate_tenant_id(),
-        config: %{name: "bar"},
-        state: :running
-      }
-    }
-  end
+  setup :setup_tenant
 
   describe "fetch_tenant" do
     test "works", %{tenant: tenant} do
-      {:ok, _pid} = TenantsSupervisor.start_tenant(tenant.id, NaiveTenant, tenant)
+      {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
 
       assert {:ok, tenant} === Tenant.fetch_tenant(NaiveTenant, tenant.id)
     end
@@ -32,23 +25,30 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
     end
   end
 
-  describe "update_config" do
-    setup %{tenant: tenant} do
-      {:ok, _pid} = TenantsSupervisor.start_tenant(tenant.id, ValidateConfigTenant, tenant)
-
-      :ok
-    end
-
+  describe "update" do
     test "works", %{tenant: tenant} do
-      assert {:ok, %{name: "bar"}} ===
-               Tenant.update_config(ValidateConfigTenant, tenant.id, %{name: "bar"})
+      {:ok, _pid} = TenantsSupervisor.start_tenant(ValidateConfigTenant, tenant)
+
+      assert :ok = Tenant.install(ValidateConfigTenant, tenant.id)
+      assert :ok = Tenant.update(ValidateConfigTenant, tenant.id, %{name: "bar"})
 
       assert {:ok, %{config: %{name: "bar"}}} =
                Tenant.fetch_tenant(ValidateConfigTenant, tenant.id)
     end
+
+    test "works with async", %{tenant: tenant} do
+      {:ok, _pid} = TenantsSupervisor.start_tenant(AsyncTenant, tenant)
+
+      assert :ok = Tenant.install(AsyncTenant, tenant.id)
+
+      assert :async = Tenant.update(AsyncTenant, tenant.id, %{name: "bar"})
+      assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(AsyncTenant, tenant.id)
+    end
   end
 
-  defp generate_tenant_id do
-    Base.encode64(:crypto.strong_rand_bytes(24))
+  defp setup_tenant(_ctx) do
+    id = Base.encode64(:crypto.strong_rand_bytes(24))
+
+    [tenant: %JetPluginSDK.Tenant{id: id, config: %{name: "foo"}, state: :running}]
   end
 end

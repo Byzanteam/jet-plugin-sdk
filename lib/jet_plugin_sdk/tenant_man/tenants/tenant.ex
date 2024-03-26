@@ -5,81 +5,120 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   require Logger
 
+  alias JetPluginSDK.TenantMan.Registry
+
+  @typep tenant_id() :: JetPluginSDK.Tenant.id()
   @typep tenant_schema() :: JetPluginSDK.Tenant.t()
-  @typep tenant_id() :: JetPluginSDK.Tenant.tenant_id()
   @typep tenant_config() :: JetPluginSDK.Tenant.config()
+  @typep tenant_state() :: term()
+  @typep state() :: {tenant_schema(), tenant_state()}
+  @typep async() :: {module(), atom(), args :: [term()]} | function()
 
-  @type state() :: term()
+  @typep extra() :: {:continue, continue_arg :: term()} | :hibernate | timeout()
 
-  @callback init(tenant :: tenant_schema()) ::
-              {:ok, tenant_schema(), state()}
-              | {:ok, tenant_schema(), state(),
-                 timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | :ignore
-              | {:stop, reason :: any()}
+  @callback handle_install(tenant_schema()) ::
+              {:ok, tenant_state()}
+              | {:async, async()}
+              | {:error, term()}
 
-  @callback handle_config_updation(
-              new_config :: tenant_config(),
-              from :: GenServer.from(),
-              state()
-            ) ::
-              {:reply, reply, config :: tenant_config(), state()}
-              | {:reply, reply, config :: tenant_config(), state(),
-                 timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:noreply, config :: tenant_config(), state()}
-              | {:noreply, config :: tenant_config(), state(),
-                 timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:stop, reason, reply, state()}
-              | {:stop, reason, state()}
-            when reply: term(), reason: any()
+  @callback handle_run(state()) ::
+              {:noreply, tenant_state()}
+              | {:noreply, tenant_state(), extra()}
+              | {:stop, reason :: term(), tenant_state()}
+
+  @callback handle_update(config :: tenant_config(), state()) ::
+              {:ok, tenant_state()}
+              | {:ok, tenant_state(), extra()}
+              | {:async, async()}
+              | {:async, async(), extra()}
+              | {:error, term()}
+
+  @callback handle_uninstall(state()) ::
+              {:ok, tenant_state()}
+              | {:ok, tenant_state(), extra()}
+              | {:async, async()}
+              | {:async, async(), extra()}
+              | {:error, term()}
 
   @callback handle_call(request :: term(), from :: GenServer.from(), state()) ::
-              {:reply, reply, state()}
-              | {:reply, reply, state(),
-                 timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:noreply, state()}
-              | {:noreply, state(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:stop, reason, reply, state()}
-              | {:stop, reason, state()}
+              {:reply, reply, tenant_state()}
+              | {:reply, reply, tenant_state(), extra()}
+              | {:noreply, tenant_state()}
+              | {:noreply, tenant_state(), extra()}
+              | {:stop, reason, reply, tenant_state()}
+              | {:stop, reason, tenant_state()}
             when reply: term(), reason: any()
 
   @callback handle_cast(request :: term(), state()) ::
-              {:noreply, state()}
-              | {:noreply, state(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:stop, reason :: any(), state()}
+              {:noreply, tenant_state()}
+              | {:noreply, tenant_state(), extra()}
+              | {:stop, reason :: any(), tenant_state()}
 
   @callback handle_continue(continue_arg :: term(), state()) ::
-              {:noreply, state()}
-              | {:noreply, state(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:stop, reason :: any(), state()}
+              {:noreply, tenant_state()}
+              | {:noreply, tenant_state(), extra()}
+              | {:stop, reason :: any(), tenant_state()}
 
   @callback handle_info(msg :: :timeout | term(), state()) ::
-              {:noreply, state()}
-              | {:noreply, state(), timeout() | :hibernate | {:continue, continue_arg :: term()}}
-              | {:stop, reason :: any(), state()}
+              {:noreply, tenant_state()}
+              | {:noreply, tenant_state(), extra()}
+              | {:stop, reason :: any(), tenant_state()}
 
   @callback terminate(reason, state :: state()) :: term()
             when reason: :normal | :shutdown | {:shutdown, term()} | term()
 
-  @optional_callbacks handle_config_updation: 3,
-                      handle_call: 3,
+  @optional_callbacks handle_call: 3,
                       handle_cast: 2,
                       handle_continue: 2,
                       handle_info: 2,
+                      handle_update: 2,
+                      handle_uninstall: 1,
                       terminate: 2
 
   defmacro __using__(_opts) do
     quote location: :keep do
+      alias JetPluginSDK.TenantMan.Registry
+      alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: Manager
+
       @typep start_link_opts() :: [
-               tenant_id: JetPluginSDK.Tenant.tenant_id(),
-               tenant: JetPluginSDK.Tenant.t(),
-               name: unquote(__MODULE__).name()
+               name: Registry.name(),
+               tenant: JetPluginSDK.Tenant.t()
              ]
 
+      @behaviour unquote(__MODULE__)
+
+      @spec fetch(tenant_id :: JetPluginSDK.Tenant.id()) ::
+              {:ok, JetPluginSDK.Tenant.t()} | :error
+      def fetch(tenant_id) do
+        unquote(__MODULE__).fetch_tenant(__MODULE__, tenant_id)
+      end
+
+      @spec install(teannt_id :: JetPluginSDK.Tenant.id()) :: :ok | :async | {:error, term()}
+      def install(tenant) do
+        unquote(__MODULE__).install(__MODULE__, tenant)
+      end
+
+      @spec update(tenant_id :: JetPluginSDK.Tenant.id(), config :: map()) ::
+              :ok | :async | {:error, term()}
+      def update(tenant_id, config) do
+        unquote(__MODULE__).update(__MODULE__, tenant_id, config)
+      end
+
+      @spec uninstall(tenant_id :: JetPluginSDK.Tenant.id()) :: :ok | :async | {:error, term()}
+      def uninstall(tenant_id) do
+        unquote(__MODULE__).uninstall(__MODULE__, tenant_id)
+      end
+
+      @spec whereis(tenant_id :: JetPluginSDK.Tenant.id()) :: {:ok, pid()} | :error
+      def whereis(tenant_id) do
+        Registry.whereis(__MODULE__, tenant_id)
+      end
+
       @spec start_link(start_link_opts()) :: GenServer.on_start()
-      def start_link(opts) do
-        opts = Keyword.put(opts, :tenant_module, __MODULE__)
-        unquote(__MODULE__).start_link(opts)
+      def start_link(args) do
+        args
+        |> Keyword.put(:tenant_module, __MODULE__)
+        |> unquote(__MODULE__).start_link()
       end
 
       @spec child_spec(start_link_opts()) :: Supervisor.child_spec()
@@ -92,60 +131,83 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         }
       end
 
-      defoverridable child_spec: 1
+      @impl unquote(__MODULE__)
+      def handle_update(_config, {_tenant, tenant_state}) do
+        {:ok, tenant_state}
+      end
 
-      @behaviour JetPluginSDK.TenantMan.Tenants.Tenant
+      @impl unquote(__MODULE__)
+      def handle_uninstall({_tenant, tenant_state}) do
+        {:ok, tenant_state}
+      end
+
+      @impl unquote(__MODULE__)
+      def terminate(_reason, _state) do
+        :ok
+      end
+
+      defoverridable child_spec: 1, handle_update: 2, handle_uninstall: 1, terminate: 2
     end
   end
 
-  @enforce_keys [:tenant_id, :tenant_module, :tenant]
+  @enforce_keys [:tenant_module, :tenant]
   defstruct [
-    :tenant_id,
     :tenant_module,
     :tenant,
     :tenant_state
   ]
 
   @type t() :: %__MODULE__{
-          tenant_id: tenant_id(),
           tenant_module: module(),
           tenant: tenant_schema(),
-          tenant_state: state()
+          tenant_state: tenant_state()
         }
 
-  @type name() :: {module(), tenant_id()}
-
   @type start_link_opts() :: [
-          tenant_id: tenant_id(),
+          name: Registry.name(),
           tenant_module: module(),
-          tenant: tenant_schema(),
-          name: name()
+          tenant: tenant_schema()
         ]
 
-  @spec name(tenant_module :: module(), tenant_id()) :: name()
-  def name(tenant_module, tenant_id) do
-    {tenant_module, tenant_id}
-  end
-
-  @spec fetch_tenant(tenant_module :: module(), tenant_id()) :: {:ok, tenant_schema()} | :error
+  @spec fetch_tenant(tenant_module :: module(), tenant_id :: tenant_id()) ::
+          {:ok, tenant_schema()} | :error
   def fetch_tenant(tenant_module, tenant_id) do
-    with(
-      {:ok, pid} <-
-        JetPluginSDK.TenantMan.Tenants.Supervisor.whereis_tenant(tenant_id, tenant_module)
-    ) do
+    with {:ok, pid} <- Registry.whereis(tenant_module, tenant_id) do
       GenServer.call(pid, {:"$tenant_man", :fetch_tenant})
     end
   end
 
-  @spec update_config(tenant_module :: module(), tenant_id(), new_config :: tenant_config()) ::
-          term()
-  def update_config(tenant_module, tenant_id, new_config) do
-    case JetPluginSDK.TenantMan.Tenants.Supervisor.whereis_tenant(tenant_id, tenant_module) do
+  @spec install(tenant_module :: module(), tenant_id :: tenant_id()) :: term()
+  def install(tenant_module, tenant_id) do
+    case Registry.whereis(tenant_module, tenant_id) do
       {:ok, pid} ->
-        GenServer.call(pid, {:"$tenant_man", {:update_config, new_config}})
+        GenServer.call(pid, {:"$tenant_man", :install})
 
       :error ->
         {:error, :tenant_not_found}
+    end
+  end
+
+  @spec update(
+          tenant_module :: module(),
+          tenant_id :: tenant_id(),
+          config :: tenant_config()
+        ) :: term()
+  def update(tenant_module, tenant_id, config) do
+    case Registry.whereis(tenant_module, tenant_id) do
+      {:ok, pid} ->
+        GenServer.call(pid, {:"$tenant_man", {:update, config}})
+
+      :error ->
+        {:error, :tenant_not_found}
+    end
+  end
+
+  @spec uninstall(tenant_module :: module(), tenant_id :: tenant_id()) :: term()
+  def uninstall(tenant_module, tenant_id) do
+    case Registry.whereis(tenant_module, tenant_id) do
+      {:ok, pid} -> GenServer.call(pid, {:"$tenant_man", :uninstall})
+      :error -> {:error, :tenant_not_found}
     end
   end
 
@@ -158,26 +220,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def init(%__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is started.")
-
-    case state.tenant_module.init(state.tenant) do
-      {:ok, tenant, tenant_state} ->
-        Logger.debug(describe(state) <> " is initialized with tenant: #{inspect(tenant)}.")
-        {:ok, %{state | tenant: tenant, tenant_state: tenant_state}}
-
-      {:ok, tenant, tenant_state, timeout_or_hibernate_or_continue} ->
-        Logger.debug(describe(state) <> " is initialized with tenant: #{inspect(tenant)}.")
-
-        {:ok, %{state | tenant: tenant, tenant_state: tenant_state},
-         timeout_or_hibernate_or_continue}
-
-      :ignore ->
-        :ignore
-
-      {:stop, reason} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason}
-    end
+    {:ok, state}
   end
 
   @impl GenServer
@@ -185,55 +228,70 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     {:reply, {:ok, state.tenant}, state}
   end
 
-  @impl GenServer
-  def handle_call({:"$tenant_man", {:update_config, new_config}}, from, %__MODULE__{} = state) do
-    Logger.debug(
-      describe(state) <> " is updating config with new config: #{inspect(new_config)}."
-    )
+  def handle_call({:"$tenant_man", :install}, _from, %__MODULE__{} = state) do
+    Logger.debug(describe(state) <> " is installing.")
 
-    case state.tenant_module.handle_config_updation(new_config, from, state.tenant_state) do
-      reply when is_tuple(reply) and tuple_size(reply) in [4, 5] and elem(reply, 0) === :reply ->
-        [:reply, reply, config, tenant_state | extra_args] = Tuple.to_list(reply)
+    case state.tenant_module.handle_install(state.tenant) do
+      {:ok, tenant_state} ->
+        {:reply, :ok, %{state | tenant_state: tenant_state},
+         {:continue, {:"$tenant_man", :handle_run}}}
 
-        state =
-          state
-          |> Map.put(:tenant_state, tenant_state)
-          |> Map.update!(:tenant, &Map.put(&1, :config, config))
+      {:async, async} ->
+        {:reply, :async, state, {:continue, {:"$tenant_man", {:install_async, async}}}}
 
-        reply = List.to_tuple([:reply, reply, tenant_state | extra_args])
+      {:error, reason} ->
+        {:stop, reason, {:error, reason}, state}
+    end
+  end
 
-        Logger.debug(describe(state) <> " is updated with new config: #{inspect(config)}.")
+  def handle_call({:"$tenant_man", {:update, config}}, _from, %__MODULE__{} = state) do
+    Logger.debug(describe(state) <> " is updating config with new config: #{inspect(config)}.")
 
-        handle_reply_callback(reply, state)
+    case state.tenant_module.handle_update(config, {state.tenant, state.tenant_state}) do
+      {:ok, tenant_state} ->
+        tenant = %{state.tenant | config: config}
+        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}}
 
-      reply
-      when is_tuple(reply) and tuple_size(reply) in [3, 4] and elem(reply, 0) === :noreply ->
-        [:noreply, config, tenant_state | extra_args] = Tuple.to_list(reply)
+      {:ok, tenant_state, extra} ->
+        tenant = %{state.tenant | config: config}
+        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
 
-        state =
-          state
-          |> Map.put(:tenant_state, tenant_state)
-          |> Map.update!(:tenant, &Map.put(&1, :config, config))
+      {:async, async} ->
+        {:reply, :async, state, {:continue, {:"$tenant_man", {:update_async, async, config}}}}
 
-        reply = List.to_tuple([:noreply, tenant_state | extra_args])
+      {:async, async, extra} ->
+        {:reply, :async, state,
+         {:continue, {:"$tenant_man", {:update_async, async, config, extra}}}}
 
-        Logger.debug(describe(state) <> " is updated with new config: #{inspect(config)}.")
+      {:error, reason} ->
+        {:reply, {:error, reason}, state}
+    end
+  end
 
-        handle_noreply_callback(reply, state)
+  def handle_call({:"$tenant_man", :uninstall}, _from, %__MODULE__{} = state) do
+    Logger.debug(describe(state) <> " is uninstalling.")
 
-      {:stop, reason, reply, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, reply, %{state | tenant_state: tenant_state}}
+    case state.tenant_module.handle_uninstall({state.tenant, state.tenant_state}) do
+      {:ok, tenant_state} ->
+        {:reply, :ok, %{state | tenant_state: tenant_state}}
 
-      {:stop, reason, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, %{state | tenant_state: tenant_state}}
+      {:ok, tenant_state, extra} ->
+        {:reply, :ok, %{state | tenant_state: tenant_state}, extra}
+
+      {:async, async} ->
+        {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async}}}}
+
+      {:async, async, extra} ->
+        {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
+
+      {:error, reason} ->
+        {:stop, reason, {:error, reason}, state}
     end
   end
 
   @impl GenServer
   def handle_call(request, from, %__MODULE__{} = state) do
-    case state.tenant_module.handle_call(request, from, state.tenant_state) do
+    case state.tenant_module.handle_call(request, from, {state.tenant, state.tenant_state}) do
       reply when is_tuple(reply) and tuple_size(reply) in [3, 4] and elem(reply, 0) === :reply ->
         handle_reply_callback(reply, state)
 
@@ -262,8 +320,101 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   @impl GenServer
+  def handle_continue({:"$tenant_man", {:install_async, async}}, %__MODULE__{} = state) do
+    case run_async(async) do
+      {:ok, tenant_state} ->
+        report_install_result()
+
+        {:noreply, %{state | tenant_state: tenant_state},
+         {:continue, {:"$tenant_man", :handle_run}}}
+
+      {:error, _reason} ->
+        report_install_result()
+        {:noreply, state}
+    end
+  end
+
+  def handle_continue({:"$tenant_man", :handle_run}, %__MODULE__{} = state) do
+    case state.tenant_module.handle_run({state.tenant, state.tenant_state}) do
+      {:noreply, tenant_state} ->
+        {:noreply, %{state | tenant_state: tenant_state}}
+
+      {:noreply, tenant_state, extra} ->
+        {:noreply, %{state | tenant_state: tenant_state}, extra}
+
+      {:stop, reason, tenant_state} ->
+        {:stop, reason, %{state | tenant_state: tenant_state}}
+    end
+  end
+
+  def handle_continue({:"$tenant_man", {:update_async, async, config}}, %__MODULE__{} = state) do
+    case run_async(async) do
+      {:ok, tenant_state} ->
+        report_update_result()
+        tenant = %{state.tenant | config: config}
+        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}}
+
+      {:error, _reason} ->
+        report_update_result()
+        {:noreply, state}
+    end
+  end
+
+  def handle_continue(
+        {:"$tenant_man", {:update_async, async, config, extra}},
+        %__MODULE__{} = state
+      ) do
+    case run_async(async) do
+      {:ok, tenant_state} ->
+        report_update_result()
+        tenant = %{state.tenant | config: config}
+        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
+
+      {:error, _reason} ->
+        report_update_result()
+        {:noreply, state, extra}
+    end
+  end
+
+  def handle_continue({:"$tenant_man", {:uninstall_async, async}}, %__MODULE__{} = state) do
+    case run_async(async) do
+      {:ok, tenant_state} ->
+        report_uninstall_result()
+        {:noreply, %{state | tenant_state: tenant_state}}
+
+      {:error, _reason} ->
+        report_uninstall_result()
+        {:noreply, state}
+    end
+  end
+
+  def handle_continue({:"$tenant_man", {:uninstall_async, async, extra}}, %__MODULE__{} = state) do
+    case run_async(async) do
+      {:ok, tenant_state} ->
+        report_uninstall_result()
+        {:noreply, %{state | tenant_state: tenant_state}, extra}
+
+      {:error, _reason} ->
+        report_uninstall_result()
+        {:noreply, state, extra}
+    end
+  end
+
   def handle_continue(continue_arg, %__MODULE__{} = state) do
     wrap_reply(continue_arg, state.tenant_module, :handle_continue, state)
+  end
+
+  @impl GenServer
+  def terminate(reason, %__MODULE__{} = state) do
+    state.tenant_module.terminate(reason, {state.tenant, state.tenant_state})
+  end
+
+  defp run_async(async) when is_function(async, 0) do
+    async.()
+  end
+
+  defp run_async({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a) do
+    apply(m, f, a)
   end
 
   defp handle_reply_callback(reply, state) do
@@ -287,7 +438,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   defp wrap_reply(request, tenant_module, callback, state) do
-    case apply(tenant_module, callback, [request, state.tenant_state]) do
+    case apply(tenant_module, callback, [request, {state.tenant, state.tenant_state}]) do
       reply
       when is_tuple(reply) and tuple_size(reply) in [2, 3] and elem(reply, 0) === :noreply ->
         handle_noreply_callback(reply, state)
@@ -298,17 +449,21 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  @impl GenServer
-  def terminate(reason, %__MODULE__{} = state) do
-    state.tenant_module.terminate(reason, state.tenant_state)
+  defp report_install_result do
+    # TODO: send install result through webhook
+  end
+
+  defp report_update_result do
+    # TODO: send update result through webhook
+  end
+
+  defp report_uninstall_result do
+    # TODO: send uninstall result through webhook
   end
 
   defp describe(%__MODULE__{} = state) do
-    %{
-      tenant_id: tenant_id,
-      tenant_module: tenant_module
-    } = state
+    %{tenant: tenant, tenant_module: tenant_module} = state
 
-    "#{inspect(tenant_module)}<#{tenant_id}>"
+    "#{inspect(tenant_module)}<#{tenant.id}>"
   end
 end

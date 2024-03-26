@@ -70,11 +70,7 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
         state: normalize_state(state)
       }
 
-      JetPluginSDK.TenantMan.Tenants.Supervisor.start_tenant(
-        tenant_id,
-        tenant_module,
-        tenant
-      )
+      JetPluginSDK.TenantMan.Tenants.Supervisor.start_tenant(tenant_module, tenant)
     end)
   end
 
