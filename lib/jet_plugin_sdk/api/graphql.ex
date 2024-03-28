@@ -71,6 +71,11 @@ defmodule JetPluginSDK.API.GraphQL do
           optional(:extensions) => String.t(),
           __callback_resp_type__: :ok
         }
+  @type callback_response_async() :: %{
+          optional(:message) => String.t(),
+          optional(:extensions) => String.t(),
+          __callback_resp_type__: :async
+        }
   @type callback_response_error() :: %{
           optional(:message) => String.t(),
           optional(:extensions) => String.t(),
@@ -78,7 +83,9 @@ defmodule JetPluginSDK.API.GraphQL do
           invalid_argument: String.t(),
           expected: String.t()
         }
-  @type callback_response() :: callback_response_ok() | callback_response_error()
+  @type initialize_response() :: manifest() | callback_response_async()
+  @type callback_response() ::
+          callback_response_ok() | callback_response_async() | callback_response_error()
 
   @callback health_check(
               args :: %{},
@@ -88,7 +95,7 @@ defmodule JetPluginSDK.API.GraphQL do
   @callback initialize(
               args :: %{},
               resolution()
-            ) :: {:ok, manifest()} | {:error, term()}
+            ) :: {:ok, initialize_response()} | {:error, term()}
 
   @callback install(
               args :: %{
@@ -178,6 +185,15 @@ defmodule JetPluginSDK.API.GraphQL do
         end
       end
 
+      union :jet_plugin_initialize_response do
+        types [:jet_plugin_manifest, :jet_plugin_callback_response_async]
+
+        resolve_type fn
+          %{__callback_resp_type__: :async}, _ -> :jet_plugin_callback_response_async
+          %{version: _version}, _ -> :jet_plugin_manifest
+        end
+      end
+
       interface :jet_plugin_callback_response do
         field :message, :string
 
@@ -195,6 +211,18 @@ defmodule JetPluginSDK.API.GraphQL do
 
         is_type_of fn
           %{__callback_resp_type__: :ok} -> true
+          _otherwise -> false
+        end
+      end
+
+      object :jet_plugin_callback_response_async do
+        field :message, :string
+        field :extensions, :string
+
+        interface :jet_plugin_callback_response
+
+        is_type_of fn
+          %{__callback_resp_type__: :async} -> true
           _otherwise -> false
         end
       end
@@ -242,7 +270,7 @@ defmodule JetPluginSDK.API.GraphQL do
         immediately with plugin info and calls Jet's `plugin_initialized` api
         to finish initialization.
         """
-        field :jet_plugin_initialize, type: :jet_plugin_manifest do
+        field :jet_plugin_initialize, type: :jet_plugin_initialize_response do
           resolve &__MODULE__.initialize/2
         end
 
