@@ -87,6 +87,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
       @behaviour unquote(__MODULE__)
 
+      @spec start(tenant :: JetPluginSDK.Tenant.t()) :: DynamicSupervisor.on_start_child()
+      def start(tenant) do
+        Manager.start_tenant(__MODULE__, tenant)
+      end
+
       @spec fetch(tenant_id :: JetPluginSDK.Tenant.id()) ::
               {:ok, JetPluginSDK.Tenant.t()} | :error
       def fetch(tenant_id) do
@@ -94,8 +99,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       end
 
       @spec install(teannt_id :: JetPluginSDK.Tenant.id()) :: :ok | :async | {:error, term()}
-      def install(tenant) do
-        unquote(__MODULE__).install(__MODULE__, tenant)
+      def install(tenant_id) do
+        unquote(__MODULE__).install(__MODULE__, tenant_id)
       end
 
       @spec update(tenant_id :: JetPluginSDK.Tenant.id(), config :: map()) ::
