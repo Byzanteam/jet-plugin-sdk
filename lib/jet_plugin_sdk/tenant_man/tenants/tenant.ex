@@ -38,7 +38,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
               | {:ok, tenant_state(), extra()}
               | {:async, async()}
               | {:async, async(), extra()}
-              | {:error, term()}
 
   @callback handle_call(request :: term(), from :: GenServer.from(), state()) ::
               {:reply, reply, tenant_state()}
@@ -288,9 +287,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
       {:async, async, extra} ->
         {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
-
-      {:error, reason} ->
-        {:stop, reason, {:error, reason}, state}
     end
   end
 

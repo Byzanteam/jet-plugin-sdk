@@ -124,7 +124,7 @@ defmodule JetPluginSDK.API.GraphQL do
                 instance_id: String.t()
               },
               resolution()
-            ) :: {:ok, callback_response()} | {:error, term()}
+            ) :: {:ok, callback_response_ok() | callback_response_async()} | {:error, term()}
 
   defmacro __using__(opts) do
     behaviour =
@@ -185,15 +185,6 @@ defmodule JetPluginSDK.API.GraphQL do
         end
       end
 
-      union :jet_plugin_initialize_response do
-        types [:jet_plugin_manifest, :jet_plugin_callback_response_async]
-
-        resolve_type fn
-          %{__callback_resp_type__: :async}, _ -> :jet_plugin_callback_response_async
-          %{version: _version}, _ -> :jet_plugin_manifest
-        end
-      end
-
       interface :jet_plugin_callback_response do
         field :message, :string
 
@@ -244,6 +235,24 @@ defmodule JetPluginSDK.API.GraphQL do
         is_type_of fn
           %{__callback_resp_type__: :error} -> true
           _otherwise -> false
+        end
+      end
+
+      union :jet_plugin_initialize_response do
+        types [:jet_plugin_manifest, :jet_plugin_callback_response_async]
+
+        resolve_type fn
+          %{__callback_resp_type__: :async}, _ -> :jet_plugin_callback_response_async
+          %{version: _version}, _ -> :jet_plugin_manifest
+        end
+      end
+
+      union :jet_plugin_uninstall_response do
+        types [:jet_plugin_callback_response_ok, :jet_plugin_callback_response_async]
+
+        resolve_type fn
+          %{__callback_resp_type__: :ok}, _ -> :jet_plugin_callback_response_ok
+          %{__callback_resp_type__: :async}, _ -> :jet_plugin_callback_response_async
         end
       end
     end
@@ -301,7 +310,7 @@ defmodule JetPluginSDK.API.GraphQL do
         @desc """
         Called when the plugin is uninstalled by a project.
         """
-        field :jet_plugin_uninstall, type: :jet_plugin_callback_response do
+        field :jet_plugin_uninstall, type: :jet_plugin_uninstall_response do
           arg :project_id, non_null(:string)
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
