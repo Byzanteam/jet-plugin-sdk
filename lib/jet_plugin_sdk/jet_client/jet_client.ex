@@ -30,7 +30,7 @@ defmodule JetPluginSDK.JetClient do
           {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
   def fetch_instances(config) do
     instances_query = """
-    {
+    query Instances {
       instances {
         projectId
         environmentId
@@ -89,7 +89,7 @@ defmodule JetPluginSDK.JetClient do
     {project_id, env_id, instance_id} = Tenant.split_tenant_id(tenant_id)
 
     instance_query = """
-    query instance(
+    query Instance(
       $projectId: String!
       $environmentId: String!
       $id: String!
@@ -125,7 +125,7 @@ defmodule JetPluginSDK.JetClient do
   end
 
   @send_event_query """
-  mutation sendEvent(
+  mutation SendEvent(
     $payload: PluginSendEventPayloadInput!
   ) {
     sendEvent(input: {
