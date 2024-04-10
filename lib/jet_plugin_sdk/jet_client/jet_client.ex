@@ -123,4 +123,33 @@ defmodule JetPluginSDK.JetClient do
         otherwise
     end
   end
+
+  @send_event_query """
+  mutation sendEvent(
+    $payload: PluginSendEventPayloadInput!
+  ) {
+    sendEvent(input: {
+      payload: $payload
+    }) {
+      success
+    }
+  }
+  """
+
+  @spec send_event(payload :: map(), config :: config()) :: :ok | {:error, GraphQLClient.error()}
+  def send_event(payload, config) do
+    variables = %{"payload" => payload}
+
+    case query(@send_event_query, variables, config) do
+      {:ok, %Req.Response{}} -> :ok
+      otherwise -> otherwise
+    end
+  end
+
+  @spec build_config() :: config()
+  def build_config do
+    :jet_plugin_sdk
+    |> Application.get_env(__MODULE__, [])
+    |> Map.new()
+  end
 end
