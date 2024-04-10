@@ -30,7 +30,7 @@ defmodule JetPluginSDK.JetClient do
           {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
   def fetch_instances(config) do
     instances_query = """
-    {
+    query Instances {
       instances {
         projectId
         environmentId
@@ -89,7 +89,7 @@ defmodule JetPluginSDK.JetClient do
     {project_id, env_id, instance_id} = Tenant.split_tenant_id(tenant_id)
 
     instance_query = """
-    query instance(
+    query Instance(
       $projectId: String!
       $environmentId: String!
       $id: String!
@@ -122,5 +122,34 @@ defmodule JetPluginSDK.JetClient do
       otherwise ->
         otherwise
     end
+  end
+
+  @send_event_query """
+  mutation SendEvent(
+    $payload: PluginSendEventPayloadInput!
+  ) {
+    sendEvent(input: {
+      payload: $payload
+    }) {
+      success
+    }
+  }
+  """
+
+  @spec send_event(payload :: map(), config :: config()) :: :ok | {:error, GraphQLClient.error()}
+  def send_event(payload, config) do
+    variables = %{"payload" => payload}
+
+    case query(@send_event_query, variables, config) do
+      {:ok, %Req.Response{}} -> :ok
+      otherwise -> otherwise
+    end
+  end
+
+  @spec build_config() :: config()
+  def build_config do
+    :jet_plugin_sdk
+    |> Application.get_env(__MODULE__, [])
+    |> Map.new()
   end
 end
