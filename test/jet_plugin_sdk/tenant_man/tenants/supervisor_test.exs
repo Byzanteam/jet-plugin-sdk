@@ -27,8 +27,12 @@ defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
   end
 
   defp setup_tenant(_ctx) do
-    id = Base.encode64(:crypto.strong_rand_bytes(24))
+    id = JetPluginSDK.Tenant.build_tenant_id(generate_id(), generate_id(), generate_id())
 
     [tenant: %JetPluginSDK.Tenant{id: id, config: %{foo: "bar"}, state: :running}]
+  end
+
+  defp generate_id do
+    Base.encode64(:crypto.strong_rand_bytes(12))
   end
 end
