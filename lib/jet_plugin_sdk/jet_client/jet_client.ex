@@ -4,17 +4,22 @@ defmodule JetPluginSDK.JetClient do
   alias JetPluginSDK.GraphQLClient
   alias JetPluginSDK.Tenant
 
+  @send_event_query """
+  mutation SendEvent(
+    $payload: PluginSendEventPayloadInput!
+  ) {
+    sendEvent(input: {
+      payload: $payload
+    }) {
+      success
+    }
+  }
+  """
+
   @type config() :: %{
           endpoint: String.t() | URI.t(),
           access_key: String.t()
         }
-
-  defp query(doc, variables \\ %{}, config) do
-    JetPluginSDK.GraphQLClient.query(config.endpoint, doc,
-      headers: [{"x-jet-plugin-access-key", config.access_key}],
-      variables: variables
-    )
-  end
 
   @type instance() :: %{
           tenant_id: Tenant.id(),
@@ -26,73 +31,16 @@ defmodule JetPluginSDK.JetClient do
           state: String.t()
         }
 
-  @spec fetch_instances(config()) ::
-          {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
-  def fetch_instances(config) do
-    instances_query = """
-    query Instances {
-      instances {
-        projectId
-        environmentId
-        id
-        config
-        capabilities {
-          __typename
-          ... on PluginInstanceCapabilityDatabase {
-            schema
-            databaseUrl
-          }
-        }
-        state
-      }
-    }
-    """
-
-    case query(instances_query, config) do
-      {:ok, %{status: 200, body: body}} ->
-        {:ok, body |> get_in(["data", "instances"]) |> build_instances()}
-
-      {:ok, resp} ->
-        {:error, resp}
-
-      otherwise ->
-        otherwise
-    end
-  end
-
-  defp build_instances(instances) do
-    Enum.map(instances, fn instance ->
-      %{
-        "projectId" => project_id,
-        "environmentId" => environment_id,
-        "id" => id,
-        "config" => config,
-        "capabilities" => capabilities,
-        "state" => state
-      } = instance
-
-      %{
-        tenant_id: Tenant.build_tenant_id(project_id, environment_id, id),
-        project_id: project_id,
-        environment_id: environment_id,
-        id: id,
-        config: config && Jason.decode!(config),
-        capabilities: capabilities,
-        state: state
-      }
-    end)
-  end
-
-  @spec fetch_tenant(Tenant.id(), config()) ::
+  @spec fetch_instance(Tenant.id()) ::
           {:ok, %{config: map(), capabilities: [map()]}}
           | {:error, Req.Response.t()}
           | GraphQLClient.error()
-  def fetch_tenant(tenant_id, config) do
+  def fetch_instance(tenant_id) do
     {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
     variables = %{"projectId" => pid, "environmentId" => eid, "id" => iid}
 
     instance_query = """
-    query Instance(
+    query Instance (
       $projectId: String!
       $environmentId: String!
       $id: String!
@@ -114,11 +62,49 @@ defmodule JetPluginSDK.JetClient do
     }
     """
 
-    with {:ok, response} <- query(instance_query, variables, config),
+    with {:ok, response} <- query(instance_query, variables, build_config()),
          {:ok, config} <- fetch_data(response, ["data", "instance", "config"]),
          {:ok, capabilities} <- fetch_data(response, ["data", "instance", "capabilities"]),
          {:ok, config} <- Jason.decode(config) do
       {:ok, %{config: config, capabilities: capabilities}}
+    end
+  end
+
+  @spec fetch_instances() ::
+          {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
+  def fetch_instances do
+    instances_query = """
+    query Instances {
+      instances {
+        projectId
+        environmentId
+        id
+        config
+        capabilities {
+          __typename
+          ... on PluginInstanceCapabilityDatabase {
+            schema
+            databaseUrl
+          }
+        }
+        state
+      }
+    }
+    """
+
+    with {:ok, response} <- query(instances_query, build_config()),
+         {:ok, instances} <- fetch_data(response, ["data", "instances"]) do
+      {:ok, build_instances(instances)}
+    end
+  end
+
+  @spec send_event(payload :: map(), config :: config()) :: :ok | {:error, GraphQLClient.error()}
+  def send_event(payload, config) do
+    variables = %{"payload" => payload}
+
+    case query(@send_event_query, variables, config) do
+      {:ok, %Req.Response{}} -> :ok
+      otherwise -> otherwise
     end
   end
 
@@ -156,33 +142,34 @@ defmodule JetPluginSDK.JetClient do
     end
   end
 
-  @send_event_query """
-  mutation SendEvent(
-    $payload: PluginSendEventPayloadInput!
-  ) {
-    sendEvent(input: {
-      payload: $payload
-    }) {
-      success
-    }
-  }
-  """
-
-  @spec send_event(payload :: map(), config :: config()) :: :ok | {:error, GraphQLClient.error()}
-  def send_event(payload, config) do
-    variables = %{"payload" => payload}
-
-    case query(@send_event_query, variables, config) do
-      {:ok, %Req.Response{}} -> :ok
-      otherwise -> otherwise
-    end
-  end
-
   @spec build_config() :: config()
-  def build_config do
+  defp build_config do
     :jet_plugin_sdk
     |> Application.get_env(__MODULE__, [])
     |> Map.new()
+  end
+
+  defp build_instances(instances) do
+    Enum.map(instances, fn instance ->
+      %{
+        "projectId" => project_id,
+        "environmentId" => environment_id,
+        "id" => id,
+        "config" => config,
+        "capabilities" => capabilities,
+        "state" => state
+      } = instance
+
+      %{
+        tenant_id: Tenant.build_tenant_id(project_id, environment_id, id),
+        project_id: project_id,
+        environment_id: environment_id,
+        id: id,
+        config: config && Jason.decode!(config),
+        capabilities: capabilities,
+        state: state
+      }
+    end)
   end
 
   defp fetch_data(response, path) do
@@ -191,5 +178,12 @@ defmodule JetPluginSDK.JetClient do
     else
       {:ok, get_in(response.body, path)}
     end
+  end
+
+  defp query(doc, variables \\ %{}, config) do
+    JetPluginSDK.GraphQLClient.query(config.endpoint, doc,
+      headers: [{"x-jet-plugin-access-key", config.access_key}],
+      variables: variables
+    )
   end
 end
