@@ -98,11 +98,11 @@ defmodule JetPluginSDK.JetClient do
     end
   end
 
-  @spec send_event(payload :: map(), config :: config()) :: :ok | {:error, GraphQLClient.error()}
-  def send_event(payload, config) do
+  @spec send_event(payload :: map()) :: :ok | {:error, GraphQLClient.error()}
+  def send_event(payload) do
     variables = %{"payload" => payload}
 
-    case query(@send_event_query, variables, config) do
+    case query(@send_event_query, variables, build_config()) do
       {:ok, %Req.Response{}} -> :ok
       otherwise -> otherwise
     end
