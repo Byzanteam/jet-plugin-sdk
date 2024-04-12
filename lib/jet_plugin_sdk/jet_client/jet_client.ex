@@ -83,10 +83,51 @@ defmodule JetPluginSDK.JetClient do
     end)
   end
 
+  @spec fetch_tenant(Tenant.id(), config()) ::
+          {:ok, %{config: map(), capabilities: [map()]}}
+          | {:error, Req.Response.t()}
+          | GraphQLClient.error()
+  def fetch_tenant(tenant_id, config) do
+    {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
+    variables = %{"projectId" => pid, "environmentId" => eid, "id" => iid}
+
+    instance_query = """
+    query Instance(
+      $projectId: String!
+      $environmentId: String!
+      $id: String!
+    ) {
+      instance(
+        projectId: $projectId,
+        environmentId: $environmentId,
+        id: $id
+      ) {
+        config
+        capabilities {
+          __typename
+          ... on PluginInstanceCapabilityDatabase {
+            schema
+            databaseUrl
+          }
+        }
+      }
+    }
+    """
+
+    with {:ok, response} <- query(instance_query, variables, config),
+         {:ok, config} <- fetch_data(response, ["data", "instance", "config"]),
+         {:ok, capabilities} <- fetch_data(response, ["data", "instance", "capabilities"]),
+         {:ok, config} <- Jason.decode(config) do
+      {:ok, %{config: config, capabilities: capabilities}}
+    end
+  end
+
+  @deprecated "fetch database infomation from tenant instead."
   @spec fetch_tenant_database(Tenant.id(), config()) ::
           {:ok, [capability :: map()]} | {:error, Req.Response.t()} | GraphQLClient.error()
   def fetch_tenant_database(tenant_id, config) do
     {project_id, env_id, instance_id} = Tenant.split_tenant_id(tenant_id)
+    variables = %{"projectId" => project_id, "environmentId" => env_id, "id" => instance_id}
 
     instance_query = """
     query Instance(
@@ -110,17 +151,8 @@ defmodule JetPluginSDK.JetClient do
     }
     """
 
-    variables = %{"projectId" => project_id, "environmentId" => env_id, "id" => instance_id}
-
-    case query(instance_query, variables, config) do
-      {:ok, %{status: 200, body: body}} ->
-        {:ok, get_in(body, ["data", "instance", "capabilities"])}
-
-      {:ok, resp} ->
-        {:error, resp}
-
-      otherwise ->
-        otherwise
+    with {:ok, response} <- query(instance_query, variables, config) do
+      fetch_data(response, ["data", "instance", "capabilities"])
     end
   end
 
@@ -151,5 +183,13 @@ defmodule JetPluginSDK.JetClient do
     :jet_plugin_sdk
     |> Application.get_env(__MODULE__, [])
     |> Map.new()
+  end
+
+  defp fetch_data(response, path) do
+    if Map.has_key?(response.body, "errors") do
+      {:error, response}
+    else
+      {:ok, get_in(response.body, path)}
+    end
   end
 end

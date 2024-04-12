@@ -1,5 +1,6 @@
 defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   use ExUnit.Case
+  use Mimic
 
   @moduletag :unit
 
@@ -10,13 +11,23 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
   alias JetPluginSDK.TenantMan.Tenants.Tenant
 
+  setup :set_mimic_global
   setup :setup_tenant
+  setup :setup_mimic
+
+  describe "init" do
+    test "fetch config at startup", %{tenant: tenant} do
+      {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
+
+      assert_receive {:tenant_config, %{name: "bar"}}
+    end
+  end
 
   describe "fetch_tenant" do
     test "works", %{tenant: tenant} do
       {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
 
-      assert {:ok, tenant} === Tenant.fetch_tenant(NaiveTenant, tenant.id)
+      assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(NaiveTenant, tenant.id)
     end
 
     test "fails", %{tenant: tenant} do
@@ -47,8 +58,24 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   end
 
   defp setup_tenant(_ctx) do
-    id = Base.encode64(:crypto.strong_rand_bytes(24))
+    id = JetPluginSDK.Tenant.build_tenant_id(generate_id(), generate_id(), generate_id())
 
     [tenant: %JetPluginSDK.Tenant{id: id, config: %{name: "foo"}, state: :running}]
+  end
+
+  defp setup_mimic(_ctx) do
+    recipient = self()
+
+    stub(JetPluginSDK.JetClient, :fetch_tenant, fn _tenant_id, _config ->
+      config = %{name: "bar"}
+      send(recipient, {:tenant_config, config})
+      {:ok, %{capabilities: [], config: config}}
+    end)
+
+    :ok
+  end
+
+  defp generate_id do
+    Base.encode64(:crypto.strong_rand_bytes(12))
   end
 end

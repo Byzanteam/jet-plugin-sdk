@@ -1,7 +1,7 @@
 defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @moduledoc false
 
-  use GenServer
+  use GenServer, restart: :transient
 
   require Logger
 
@@ -224,7 +224,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def init(%__MODULE__{} = state) do
-    {:ok, state}
+    {:ok, state, {:continue, {:"$tenant_man", :fetch_config}}}
   end
 
   @impl GenServer
@@ -321,6 +321,25 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   @impl GenServer
+  def handle_continue({:"$tenant_man", :fetch_config}, %__MODULE__{} = state) do
+    config = JetPluginSDK.JetClient.build_config()
+
+    case JetPluginSDK.JetClient.fetch_tenant(state.tenant.id, config) do
+      {:ok, tenant} ->
+        {:noreply, %{state | tenant: Map.merge(state.tenant, tenant)}}
+
+      {:error, reason} ->
+        message = """
+        #{describe(state)} stopped because it could not obtain its configuration.
+        #{inspect(reason)}
+        """
+
+        Logger.debug(message)
+
+        {:stop, {:shutdown, reason}, state}
+    end
+  end
+
   def handle_continue({:"$tenant_man", {:install_async, async}}, %__MODULE__{} = state) do
     case run_async(async) do
       {:ok, tenant_state} ->
