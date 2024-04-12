@@ -6,20 +6,29 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
 
   @moduletag :unit
 
-  setup do
-    stub(JetPluginSDK.JetClient, :fetch_instances, fn _config ->
+  setup :set_mimic_global
+  setup :verify_on_exit!
+
+  test "works" do
+    expect(JetPluginSDK.JetClient, :fetch_instances, fn ->
       {:ok, Enum.map(1..6, fn _i -> build_instance() end)}
     end)
 
-    :ok
+    pid = spawn(fn -> WarmUp.run(tenant_module: JetPluginSDK.Support.Tenant.Naive) end)
+
+    ref = Process.monitor(pid)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
   end
 
-  test "works" do
-    WarmUp.run(
-      tenant_module: JetPluginSDK.Support.Tenant.Naive,
-      jet_endpoint: "http://jet.dev",
-      jet_access_key: "access_key"
-    )
+  test "failed" do
+    expect(JetPluginSDK.JetClient, :fetch_instances, fn -> {:error, :reason} end)
+
+    pid = spawn(fn -> WarmUp.run(tenant_module: JetPluginSDK.Support.Tenant.Naive) end)
+
+    ref = Process.monitor(pid)
+
+    assert_receive {:DOWN, ^ref, :process, ^pid, {:error, :reason}}
   end
 
   defp build_instance do

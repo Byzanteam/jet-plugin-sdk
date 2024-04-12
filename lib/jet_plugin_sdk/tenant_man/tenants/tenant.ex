@@ -224,7 +224,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def init(%__MODULE__{} = state) do
-    {:ok, state, {:continue, {:"$tenant_man", :fetch_config}}}
+    {:ok, state, {:continue, {:"$tenant_man", :fetch_instance}}}
   end
 
   @impl GenServer
@@ -321,12 +321,10 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   @impl GenServer
-  def handle_continue({:"$tenant_man", :fetch_config}, %__MODULE__{} = state) do
-    config = JetPluginSDK.JetClient.build_config()
-
-    case JetPluginSDK.JetClient.fetch_tenant(state.tenant.id, config) do
-      {:ok, tenant} ->
-        {:noreply, %{state | tenant: Map.merge(state.tenant, tenant)}}
+  def handle_continue({:"$tenant_man", :fetch_instance}, %__MODULE__{} = state) do
+    case JetPluginSDK.JetClient.fetch_instance(state.tenant.id) do
+      {:ok, instance} ->
+        {:noreply, %{state | tenant: Map.merge(state.tenant, instance)}}
 
       {:error, reason} ->
         message = """

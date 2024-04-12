@@ -66,7 +66,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   defp setup_mimic(_ctx) do
     recipient = self()
 
-    stub(JetPluginSDK.JetClient, :fetch_tenant, fn _tenant_id, _config ->
+    stub(JetPluginSDK.JetClient, :fetch_instance, fn _tenant_id ->
       config = %{name: "bar"}
       send(recipient, {:tenant_config, config})
       {:ok, %{capabilities: [], config: config}}
