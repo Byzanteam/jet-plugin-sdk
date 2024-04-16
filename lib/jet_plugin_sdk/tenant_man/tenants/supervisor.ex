@@ -8,9 +8,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Supervisor do
   @spec start_tenant(tenant_module :: module(), tenant :: JetPluginSDK.Tenant.t()) ::
           DynamicSupervisor.on_start_child()
   def start_tenant(tenant_module, tenant) do
-    args = [name: Registry.name(tenant_module, tenant.id), tenant: tenant]
+    args = [
+      name: Registry.name(tenant_module, tenant.id),
+      tenant: tenant,
+      tenant_module: tenant_module
+    ]
 
-    DynamicSupervisor.start_child(__MODULE__, {tenant_module, args})
+    DynamicSupervisor.start_child(__MODULE__, {JetPluginSDK.TenantMan.Tenants.Tenant, args})
   end
 
   @spec start_link(args :: keyword()) :: Supervisor.on_start()
