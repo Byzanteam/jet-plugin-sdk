@@ -79,11 +79,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       alias JetPluginSDK.TenantMan.Registry
       alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: Manager
 
-      @typep start_link_opts() :: [
-               name: Registry.name(),
-               tenant: JetPluginSDK.Tenant.t()
-             ]
-
       @behaviour unquote(__MODULE__)
 
       @spec start(tenant :: JetPluginSDK.Tenant.t()) :: DynamicSupervisor.on_start_child()
@@ -118,23 +113,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         Registry.whereis(__MODULE__, tenant_id)
       end
 
-      @spec start_link(start_link_opts()) :: GenServer.on_start()
-      def start_link(args) do
-        args
-        |> Keyword.put(:tenant_module, __MODULE__)
-        |> unquote(__MODULE__).start_link()
-      end
-
-      @spec child_spec(start_link_opts()) :: Supervisor.child_spec()
-      def child_spec(opts) do
-        %{
-          id: {__MODULE__, opts},
-          start: {__MODULE__, :start_link, [opts]},
-          restart: :permanent,
-          type: :worker
-        }
-      end
-
       @impl unquote(__MODULE__)
       def handle_update(_config, {_tenant, tenant_state}) do
         {:ok, tenant_state}
@@ -150,7 +128,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         :ok
       end
 
-      defoverridable child_spec: 1, handle_update: 2, handle_uninstall: 1, terminate: 2
+      defoverridable handle_update: 2, handle_uninstall: 1, terminate: 2
     end
   end
 

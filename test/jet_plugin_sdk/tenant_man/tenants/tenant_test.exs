@@ -5,6 +5,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   @moduletag :unit
 
   alias JetPluginSDK.Support.Tenant.Async, as: AsyncTenant
+  alias JetPluginSDK.Support.Tenant.GenServerLike, as: GenServerLikeTenant
   alias JetPluginSDK.Support.Tenant.Naive, as: NaiveTenant
   alias JetPluginSDK.Support.Tenant.ValidateConfig, as: ValidateConfigTenant
 
@@ -54,6 +55,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
       assert :async = Tenant.update(AsyncTenant, tenant.id, %{name: "bar"})
       assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(AsyncTenant, tenant.id)
+    end
+  end
+
+  describe "support gen_server callbacks" do
+    test "works with handle_call", %{tenant: tenant} do
+      {:ok, pid} = TenantsSupervisor.start_tenant(GenServerLikeTenant, tenant)
+
+      assert :pong === GenServer.call(pid, :ping)
     end
   end
 
