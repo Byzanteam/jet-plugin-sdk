@@ -26,10 +26,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
   describe "fetch_tenant" do
     test "works", %{tenant: tenant} do
-      {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
+      {:ok, pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
 
-      # 等待 tenant 通过 fetch_isntance 完成最新配置的获取
-      Process.sleep(5)
+      NaiveTenant.ping(pid)
 
       assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(NaiveTenant, tenant.id)
     end
