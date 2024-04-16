@@ -6,6 +6,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   require Logger
 
   alias JetPluginSDK.TenantMan.Registry
+  alias JetPluginSDK.TenantMan.Storage
 
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
   @typep tenant_schema() :: JetPluginSDK.Tenant.t()
@@ -132,19 +133,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  @enforce_keys [:tenant_module, :tenant]
-  defstruct [
-    :tenant_module,
-    :tenant,
-    :tenant_state
-  ]
-
-  @type t() :: %__MODULE__{
-          tenant_module: module(),
-          tenant: tenant_schema(),
-          tenant_state: tenant_state()
-        }
-
   @type start_link_opts() :: [
           name: Registry.name(),
           tenant_module: module(),
@@ -154,8 +142,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @spec fetch_tenant(tenant_module :: module(), tenant_id :: tenant_id()) ::
           {:ok, tenant_schema()} | :error
   def fetch_tenant(tenant_module, tenant_id) do
-    with {:ok, pid} <- Registry.whereis(tenant_module, tenant_id) do
-      GenServer.call(pid, {:"$tenant_man", :fetch_tenant})
+    with {:ok, state} <- Storage.fetch({tenant_module, tenant_id}) do
+      {:ok, state.tenant}
     end
   end
 
@@ -197,211 +185,241 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   def start_link(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
 
-    GenServer.start_link(__MODULE__, __struct__(opts), name: name)
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   @impl GenServer
-  def init(%__MODULE__{} = state) do
-    {:ok, state, {:continue, {:"$tenant_man", :fetch_instance}}}
+  def init(opts) do
+    tenant_module = Keyword.fetch!(opts, :tenant_module)
+    tenant = Keyword.fetch!(opts, :tenant)
+    key = Storage.build_key(tenant_module, tenant)
+
+    case Storage.insert(key, tenant) do
+      :ok ->
+        {:ok, key, {:continue, {:"$tenant_man", :fetch_instance}}}
+
+      :error ->
+        Logger.error(describe(key) <> " already has a state")
+        {:stop, :already_has_state}
+    end
   end
 
   @impl GenServer
-  def handle_call({:"$tenant_man", :fetch_tenant}, _from, %__MODULE__{} = state) do
-    {:reply, {:ok, state.tenant}, state}
-  end
+  def handle_call({:"$tenant_man", :install}, _from, key) do
+    Logger.debug(describe(key) <> " is installing.")
 
-  def handle_call({:"$tenant_man", :install}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is installing.")
+    {:ok, state} = Storage.fetch(key)
 
     case state.tenant_module.handle_install(state.tenant) do
       {:ok, tenant_state} ->
-        {:reply, :ok, %{state | tenant_state: tenant_state},
-         {:continue, {:"$tenant_man", :handle_run}}}
+        Storage.update_state(key, tenant_state)
+        {:reply, :ok, key, {:continue, {:"$tenant_man", :handle_run}}}
 
       {:async, async} ->
-        {:reply, :async, state, {:continue, {:"$tenant_man", {:install_async, async}}}}
+        {:reply, :async, key, {:continue, {:"$tenant_man", {:install_async, async}}}}
 
       {:error, reason} ->
-        {:stop, reason, {:error, reason}, state}
+        {:stop, reason, {:error, reason}, key}
     end
   end
 
-  def handle_call({:"$tenant_man", {:update, config}}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is updating config with new config: #{inspect(config)}.")
+  def handle_call({:"$tenant_man", {:update, config}}, _from, key) do
+    Logger.debug(describe(key) <> " is updating config with new config: #{inspect(config)}.")
+
+    {:ok, state} = Storage.fetch(key)
 
     case state.tenant_module.handle_update(config, {state.tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
-        tenant = %{state.tenant | config: config}
-        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}}
+        Storage.update(key, %{state.tenant | config: config}, tenant_state)
+        {:reply, :ok, key}
 
       {:ok, tenant_state, extra} ->
-        tenant = %{state.tenant | config: config}
-        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
+        Storage.update(key, %{state.tenant | config: config}, tenant_state)
+        {:reply, :ok, key, extra}
 
       {:async, async} ->
-        {:reply, :async, state, {:continue, {:"$tenant_man", {:update_async, async, config}}}}
+        {:reply, :async, key, {:continue, {:"$tenant_man", {:update_async, async, config}}}}
 
       {:async, async, extra} ->
-        {:reply, :async, state,
+        {:reply, :async, key,
          {:continue, {:"$tenant_man", {:update_async, async, config, extra}}}}
 
       {:error, reason} ->
-        {:reply, {:error, reason}, state}
+        {:reply, {:error, reason}, key}
     end
   end
 
-  def handle_call({:"$tenant_man", :uninstall}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is uninstalling.")
+  def handle_call({:"$tenant_man", :uninstall}, _from, key) do
+    Logger.debug(describe(key) <> " is uninstalling.")
+
+    {:ok, state} = Storage.fetch(key)
 
     case state.tenant_module.handle_uninstall({state.tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
-        {:reply, :ok, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:reply, :ok, key}
 
       {:ok, tenant_state, extra} ->
-        {:reply, :ok, %{state | tenant_state: tenant_state}, extra}
+        Storage.update_state(key, tenant_state)
+        {:reply, :ok, key, extra}
 
       {:async, async} ->
-        {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async}}}}
+        {:reply, :async, key, {:continue, {:"$tenant_man", {:uninstall_async, async}}}}
 
       {:async, async, extra} ->
-        {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
+        {:reply, :async, key, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
     end
   end
 
   @impl GenServer
-  def handle_call(request, from, %__MODULE__{} = state) do
+  def handle_call(request, from, key) do
+    {:ok, state} = Storage.fetch(key)
+
     case state.tenant_module.handle_call(request, from, {state.tenant, state.tenant_state}) do
       reply when is_tuple(reply) and tuple_size(reply) in [3, 4] and elem(reply, 0) === :reply ->
-        handle_reply_callback(reply, state)
+        handle_reply_callback(reply, key)
 
       reply
       when is_tuple(reply) and tuple_size(reply) in [2, 3] and elem(reply, 0) === :noreply ->
-        handle_noreply_callback(reply, state)
+        handle_noreply_callback(reply, key)
 
       {:stop, reason, reply, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, reply, %{state | tenant_state: tenant_state}}
+        Logger.debug(describe(key) <> " is stopped with reason: #{inspect(reason)}.")
+        Storage.update_state(key, tenant_state)
+        {:stop, reason, reply, key}
 
       {:stop, reason, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, %{state | tenant_state: tenant_state}}
+        Logger.debug(describe(key) <> " is stopped with reason: #{inspect(reason)}.")
+        Storage.update_state(key, tenant_state)
+        {:stop, reason, key}
     end
   end
 
   @impl GenServer
-  def handle_cast(request, state) do
-    wrap_reply(request, state.tenant_module, :handle_cast, state)
+  def handle_cast(request, key) do
+    wrap_reply(request, :handle_cast, key)
   end
 
   @impl GenServer
-  def handle_info(msg, state) do
-    wrap_reply(msg, state.tenant_module, :handle_info, state)
+  def handle_info(msg, key) do
+    wrap_reply(msg, :handle_info, key)
   end
 
   @impl GenServer
-  def handle_continue({:"$tenant_man", :fetch_instance}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", :fetch_instance}, key) do
+    {:ok, state} = Storage.fetch(key)
+
     case JetPluginSDK.JetClient.fetch_instance(state.tenant.id) do
       {:ok, instance} ->
-        {:noreply, %{state | tenant: Map.merge(state.tenant, instance)}}
+        Storage.update_tenant(key, Map.merge(state.tenant, instance))
+        {:noreply, key}
 
       {:error, reason} ->
         message = """
-        #{describe(state)} stopped because it could not obtain its configuration.
+        #{describe(key)} stopped because it could not obtain its configuration.
         #{inspect(reason)}
         """
 
         Logger.debug(message)
 
-        {:stop, {:shutdown, reason}, state}
+        {:stop, {:shutdown, reason}, key}
     end
   end
 
-  def handle_continue({:"$tenant_man", {:install_async, async}}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", {:install_async, async}}, key) do
     case run_async(async) do
       {:ok, tenant_state} ->
         report_install_result()
-
-        {:noreply, %{state | tenant_state: tenant_state},
-         {:continue, {:"$tenant_man", :handle_run}}}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key, {:continue, {:"$tenant_man", :handle_run}}}
 
       {:error, _reason} ->
         report_install_result()
-        {:noreply, state}
+        {:noreply, key}
     end
   end
 
-  def handle_continue({:"$tenant_man", :handle_run}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", :handle_run}, key) do
+    {:ok, state} = Storage.fetch(key)
+
     case state.tenant_module.handle_run({state.tenant, state.tenant_state}) do
       {:noreply, tenant_state} ->
-        {:noreply, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key}
 
       {:noreply, tenant_state, extra} ->
-        {:noreply, %{state | tenant_state: tenant_state}, extra}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key, extra}
 
       {:stop, reason, tenant_state} ->
-        {:stop, reason, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:stop, reason, key}
     end
   end
 
-  def handle_continue({:"$tenant_man", {:update_async, async, config}}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", {:update_async, async, config}}, key) do
+    {:ok, state} = Storage.fetch(key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
         report_update_result()
-        tenant = %{state.tenant | config: config}
-        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}}
+        Storage.update(key, %{state.tenant | config: config}, tenant_state)
+        {:noreply, key}
 
       {:error, _reason} ->
         report_update_result()
-        {:noreply, state}
+        {:noreply, key}
     end
   end
 
-  def handle_continue(
-        {:"$tenant_man", {:update_async, async, config, extra}},
-        %__MODULE__{} = state
-      ) do
+  def handle_continue({:"$tenant_man", {:update_async, async, config, extra}}, key) do
+    {:ok, state} = Storage.fetch(key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
         report_update_result()
-        tenant = %{state.tenant | config: config}
-        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
+        Storage.update(key, %{state.tenant | config: config}, tenant_state)
+        {:noreply, key, extra}
 
       {:error, _reason} ->
         report_update_result()
-        {:noreply, state, extra}
+        {:noreply, key, extra}
     end
   end
 
-  def handle_continue({:"$tenant_man", {:uninstall_async, async}}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", {:uninstall_async, async}}, key) do
     case run_async(async) do
       {:ok, tenant_state} ->
         report_uninstall_result()
-        {:noreply, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key}
 
       {:error, _reason} ->
         report_uninstall_result()
-        {:noreply, state}
+        {:noreply, key}
     end
   end
 
-  def handle_continue({:"$tenant_man", {:uninstall_async, async, extra}}, %__MODULE__{} = state) do
+  def handle_continue({:"$tenant_man", {:uninstall_async, async, extra}}, key) do
     case run_async(async) do
       {:ok, tenant_state} ->
         report_uninstall_result()
-        {:noreply, %{state | tenant_state: tenant_state}, extra}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key, extra}
 
       {:error, _reason} ->
         report_uninstall_result()
-        {:noreply, state, extra}
+        {:noreply, key, extra}
     end
   end
 
-  def handle_continue(continue_arg, %__MODULE__{} = state) do
-    wrap_reply(continue_arg, state.tenant_module, :handle_continue, state)
+  def handle_continue(continue_arg, key) do
+    wrap_reply(continue_arg, :handle_continue, key)
   end
 
   @impl GenServer
-  def terminate(reason, %__MODULE__{} = state) do
+  def terminate(reason, key) do
+    {:ok, state} = Storage.fetch(key)
     state.tenant_module.terminate(reason, {state.tenant, state.tenant_state})
   end
 
@@ -413,35 +431,42 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     apply(m, f, a)
   end
 
-  defp handle_reply_callback(reply, state) do
+  defp handle_reply_callback(reply, key) do
     case reply do
       {:reply, reply, tenant_state} ->
-        {:reply, reply, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:reply, reply, key}
 
       {:reply, reply, tenant_state, timeout_or_hibernate_or_continue} ->
-        {:reply, reply, %{state | tenant_state: tenant_state}, timeout_or_hibernate_or_continue}
+        Storage.update_state(key, tenant_state)
+        {:reply, reply, key, timeout_or_hibernate_or_continue}
     end
   end
 
-  defp handle_noreply_callback(reply, state) do
+  defp handle_noreply_callback(reply, key) do
     case reply do
       {:noreply, tenant_state} ->
-        {:noreply, %{state | tenant_state: tenant_state}}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key}
 
       {:noreply, tenant_state, timeout_or_hibernate_or_continue} ->
-        {:noreply, %{state | tenant_state: tenant_state}, timeout_or_hibernate_or_continue}
+        Storage.update_state(key, tenant_state)
+        {:noreply, key, timeout_or_hibernate_or_continue}
     end
   end
 
-  defp wrap_reply(request, tenant_module, callback, state) do
-    case apply(tenant_module, callback, [request, {state.tenant, state.tenant_state}]) do
+  defp wrap_reply(request, callback, key) do
+    {:ok, state} = Storage.fetch(key)
+
+    case apply(state.tenant_module, callback, [request, {state.tenant, state.tenant_state}]) do
       reply
       when is_tuple(reply) and tuple_size(reply) in [2, 3] and elem(reply, 0) === :noreply ->
-        handle_noreply_callback(reply, state)
+        handle_noreply_callback(reply, key)
 
       {:stop, reason, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, %{state | tenant_state: tenant_state}}
+        Logger.debug(describe(key) <> " is stopped with reason: #{inspect(reason)}.")
+        Storage.update_state(key, tenant_state)
+        {:stop, reason, key}
     end
   end
 
@@ -457,9 +482,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     # TODO: send uninstall result through webhook
   end
 
-  defp describe(%__MODULE__{} = state) do
-    %{tenant: tenant, tenant_module: tenant_module} = state
-
-    "#{inspect(tenant_module)}<#{tenant.id}>"
+  defp describe({tenant_module, tenant_id}) do
+    "#{inspect(tenant_module)}<#{tenant_id}>"
   end
 end

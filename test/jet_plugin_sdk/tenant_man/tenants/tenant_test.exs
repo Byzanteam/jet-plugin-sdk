@@ -28,6 +28,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
     test "works", %{tenant: tenant} do
       {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
 
+      # 等待 tenant 通过 fetch_isntance 完成最新配置的获取
+      Process.sleep(5)
+
       assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(NaiveTenant, tenant.id)
     end
 
