@@ -417,7 +417,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @impl GenServer
   def terminate(reason, %__MODULE__{} = state) do
     {:ok, tenant} = Storage.fetch(state.key)
-    Storage.delete(state.key)
     state.tenant_module.terminate(reason, {tenant, state.tenant_state})
   end
 

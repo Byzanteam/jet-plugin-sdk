@@ -11,15 +11,10 @@ defmodule JetPluginSDK.TenantMan.Storage do
     {tenant_module, tenant.id}
   end
 
-  @spec delete(key :: key()) :: :ok
-  def delete(key) do
-    GenServer.call(__MODULE__, {:delete, key})
-  end
-
   @spec fetch(key :: key()) :: {:ok, tenant()} | :error
   def fetch(key) do
     case :ets.lookup(__MODULE__, key) do
-      [{^key, tenant}] -> {:ok, tenant}
+      [{^key, _pid, tenant}] -> {:ok, tenant}
       [] -> :error
     end
   end
@@ -44,13 +39,9 @@ defmodule JetPluginSDK.TenantMan.Storage do
   end
 
   @impl GenServer
-  def handle_call({:delete, key}, _from, table) do
-    :ets.delete(table, key)
-    {:reply, :ok, table}
-  end
-
-  def handle_call({:insert, key, tenant}, _from, table) do
-    if :ets.insert_new(table, {key, tenant}) do
+  def handle_call({:insert, key, tenant}, {pid, _tag}, table) do
+    if :ets.insert_new(table, {key, pid, tenant}) do
+      Process.monitor(pid)
       {:reply, :ok, table}
     else
       {:reply, :error, table}
@@ -58,7 +49,13 @@ defmodule JetPluginSDK.TenantMan.Storage do
   end
 
   def handle_call({:update, key, tenant}, _from, table) do
-    :ets.update_element(table, key, {2, tenant})
+    :ets.update_element(table, key, {3, tenant})
     {:reply, :ok, table}
+  end
+
+  @impl GenServer
+  def handle_info({:DOWN, _ref, :process, pid, _reason}, table) do
+    :ets.match_delete(table, {:"$1", pid, :"$2"})
+    {:noreply, table}
   end
 end
