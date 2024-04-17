@@ -2,7 +2,8 @@ defmodule JetPluginSDK.Tenant do
   @moduledoc false
 
   @type id() :: String.t()
-  @type config() :: nil | map()
+  @type config() :: map()
+  @type capabilities() :: [map()]
 
   @enforce_keys [:id, :state]
 

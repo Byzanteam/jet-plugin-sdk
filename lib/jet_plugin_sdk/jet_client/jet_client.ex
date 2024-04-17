@@ -32,9 +32,8 @@ defmodule JetPluginSDK.JetClient do
         }
 
   @spec fetch_instance(Tenant.id()) ::
-          {:ok, %{config: map(), capabilities: [map()]}}
-          | {:error, Req.Response.t()}
-          | GraphQLClient.error()
+          {:ok, %{config: Tenant.config(), capabilities: Tenant.capabilities()}}
+          | {:error, Req.Response.t() | GraphQLClient.error()}
   def fetch_instance(tenant_id) do
     {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
     variables = %{"projectId" => pid, "environmentId" => eid, "id" => iid}
@@ -71,7 +70,7 @@ defmodule JetPluginSDK.JetClient do
   end
 
   @spec fetch_instances() ::
-          {:ok, [instance()]} | {:error, Req.Response.t()} | GraphQLClient.error()
+          {:ok, [instance()]} | {:error, Req.Response.t() | GraphQLClient.error()}
   def fetch_instances do
     instances_query = """
     query Instances {
