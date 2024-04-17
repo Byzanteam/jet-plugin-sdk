@@ -23,6 +23,7 @@ defmodule JetPluginSDK.TenantMan.Supervisor do
     children =
       [
         JetPluginSDK.TenantMan.Registry,
+        JetPluginSDK.TenantMan.Storage,
         JetPluginSDK.TenantMan.Tenants.Supervisor
       ] ++ warm_up_children
 

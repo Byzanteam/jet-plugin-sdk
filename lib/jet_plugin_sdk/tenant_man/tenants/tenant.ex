@@ -6,6 +6,10 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   require Logger
 
   alias JetPluginSDK.TenantMan.Registry
+  alias JetPluginSDK.TenantMan.Storage
+
+  @enforce_keys [:key, :tenant_module]
+  defstruct [:key, :tenant_module, :tenant_state]
 
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
   @typep tenant_schema() :: JetPluginSDK.Tenant.t()
@@ -132,19 +136,6 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  @enforce_keys [:tenant_module, :tenant]
-  defstruct [
-    :tenant_module,
-    :tenant,
-    :tenant_state
-  ]
-
-  @type t() :: %__MODULE__{
-          tenant_module: module(),
-          tenant: tenant_schema(),
-          tenant_state: tenant_state()
-        }
-
   @type start_link_opts() :: [
           name: Registry.name(),
           tenant_module: module(),
@@ -154,9 +145,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @spec fetch_tenant(tenant_module :: module(), tenant_id :: tenant_id()) ::
           {:ok, tenant_schema()} | :error
   def fetch_tenant(tenant_module, tenant_id) do
-    with {:ok, pid} <- Registry.whereis(tenant_module, tenant_id) do
-      GenServer.call(pid, {:"$tenant_man", :fetch_tenant})
-    end
+    Storage.fetch({tenant_module, tenant_id})
   end
 
   @spec install(tenant_module :: module(), tenant_id :: tenant_id()) :: term()
@@ -197,23 +186,29 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   def start_link(opts) do
     {name, opts} = Keyword.pop!(opts, :name)
 
-    GenServer.start_link(__MODULE__, __struct__(opts), name: name)
+    GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   @impl GenServer
-  def init(%__MODULE__{} = state) do
-    {:ok, state, {:continue, {:"$tenant_man", :fetch_instance}}}
+  def init(opts) do
+    tenant_module = Keyword.fetch!(opts, :tenant_module)
+    tenant = Keyword.fetch!(opts, :tenant)
+
+    state = %__MODULE__{
+      key: Storage.build_key(tenant_module, tenant),
+      tenant_module: tenant_module
+    }
+
+    {:ok, state, {:continue, {:"$tenant_man", {:fetch_instance, tenant}}}}
   end
 
   @impl GenServer
-  def handle_call({:"$tenant_man", :fetch_tenant}, _from, %__MODULE__{} = state) do
-    {:reply, {:ok, state.tenant}, state}
-  end
-
   def handle_call({:"$tenant_man", :install}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is installing.")
+    Logger.debug(describe(state.key) <> " is installing.")
 
-    case state.tenant_module.handle_install(state.tenant) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case state.tenant_module.handle_install(tenant) do
       {:ok, tenant_state} ->
         {:reply, :ok, %{state | tenant_state: tenant_state},
          {:continue, {:"$tenant_man", :handle_run}}}
@@ -227,16 +222,20 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_call({:"$tenant_man", {:update, config}}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is updating config with new config: #{inspect(config)}.")
+    Logger.debug(
+      describe(state.key) <> " is updating config with new config: #{inspect(config)}."
+    )
 
-    case state.tenant_module.handle_update(config, {state.tenant, state.tenant_state}) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case state.tenant_module.handle_update(config, {tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
-        tenant = %{state.tenant | config: config}
-        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}}
+        Storage.update(state.key, %{tenant | config: config})
+        {:reply, :ok, %{state | tenant_state: tenant_state}}
 
       {:ok, tenant_state, extra} ->
-        tenant = %{state.tenant | config: config}
-        {:reply, :ok, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
+        Storage.update(state.key, %{tenant | config: config})
+        {:reply, :ok, %{state | tenant_state: tenant_state}, extra}
 
       {:async, async} ->
         {:reply, :async, state, {:continue, {:"$tenant_man", {:update_async, async, config}}}}
@@ -251,9 +250,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_call({:"$tenant_man", :uninstall}, _from, %__MODULE__{} = state) do
-    Logger.debug(describe(state) <> " is uninstalling.")
+    Logger.debug(describe(state.key) <> " is uninstalling.")
 
-    case state.tenant_module.handle_uninstall({state.tenant, state.tenant_state}) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case state.tenant_module.handle_uninstall({tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
         {:reply, :ok, %{state | tenant_state: tenant_state}}
 
@@ -270,7 +271,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def handle_call(request, from, %__MODULE__{} = state) do
-    case state.tenant_module.handle_call(request, from, {state.tenant, state.tenant_state}) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case state.tenant_module.handle_call(request, from, {tenant, state.tenant_state}) do
       reply when is_tuple(reply) and tuple_size(reply) in [3, 4] and elem(reply, 0) === :reply ->
         handle_reply_callback(reply, state)
 
@@ -279,40 +282,45 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         handle_noreply_callback(reply, state)
 
       {:stop, reason, reply, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
+        Logger.debug(describe(state.key) <> " is stopped with reason: #{inspect(reason)}.")
         {:stop, reason, reply, %{state | tenant_state: tenant_state}}
 
       {:stop, reason, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
+        Logger.debug(describe(state.key) <> " is stopped with reason: #{inspect(reason)}.")
         {:stop, reason, %{state | tenant_state: tenant_state}}
     end
   end
 
   @impl GenServer
-  def handle_cast(request, state) do
-    wrap_reply(request, state.tenant_module, :handle_cast, state)
+  def handle_cast(request, %__MODULE__{} = state) do
+    wrap_reply(request, :handle_cast, state)
   end
 
   @impl GenServer
-  def handle_info(msg, state) do
-    wrap_reply(msg, state.tenant_module, :handle_info, state)
+  def handle_info(msg, %__MODULE__{} = state) do
+    wrap_reply(msg, :handle_info, state)
   end
 
   @impl GenServer
-  def handle_continue({:"$tenant_man", :fetch_instance}, %__MODULE__{} = state) do
-    case JetPluginSDK.JetClient.fetch_instance(state.tenant.id) do
-      {:ok, instance} ->
-        {:noreply, %{state | tenant: Map.merge(state.tenant, instance)}}
-
+  def handle_continue({:"$tenant_man", {:fetch_instance, tenant}}, %__MODULE__{} = state) do
+    with {:ok, instance} <- JetPluginSDK.JetClient.fetch_instance(tenant.id),
+         :ok <- Storage.insert(state.key, Map.merge(tenant, instance)) do
+      {:noreply, state}
+    else
       {:error, reason} ->
         message = """
-        #{describe(state)} stopped because it could not obtain its configuration.
+        #{describe(state.key)} stopped because it could not obtain its configuration.
         #{inspect(reason)}
         """
 
         Logger.debug(message)
 
         {:stop, {:shutdown, reason}, state}
+
+      :error ->
+        Logger.debug(describe(state.key) <> " already has a state")
+
+        {:stop, :already_has_state}
     end
   end
 
@@ -331,7 +339,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_continue({:"$tenant_man", :handle_run}, %__MODULE__{} = state) do
-    case state.tenant_module.handle_run({state.tenant, state.tenant_state}) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case state.tenant_module.handle_run({tenant, state.tenant_state}) do
       {:noreply, tenant_state} ->
         {:noreply, %{state | tenant_state: tenant_state}}
 
@@ -344,11 +354,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_continue({:"$tenant_man", {:update_async, async, config}}, %__MODULE__{} = state) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
         report_update_result()
-        tenant = %{state.tenant | config: config}
-        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}}
+        Storage.update(state.key, %{tenant | config: config})
+        {:noreply, %{state | tenant_state: tenant_state}}
 
       {:error, _reason} ->
         report_update_result()
@@ -360,11 +372,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         {:"$tenant_man", {:update_async, async, config, extra}},
         %__MODULE__{} = state
       ) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
         report_update_result()
-        tenant = %{state.tenant | config: config}
-        {:noreply, %{state | tenant: tenant, tenant_state: tenant_state}, extra}
+        Storage.update(state.key, %{tenant | config: config})
+        {:noreply, %{state | tenant_state: tenant_state}, extra}
 
       {:error, _reason} ->
         report_update_result()
@@ -397,23 +411,20 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_continue(continue_arg, %__MODULE__{} = state) do
-    wrap_reply(continue_arg, state.tenant_module, :handle_continue, state)
+    wrap_reply(continue_arg, :handle_continue, state)
   end
 
   @impl GenServer
   def terminate(reason, %__MODULE__{} = state) do
-    state.tenant_module.terminate(reason, {state.tenant, state.tenant_state})
+    {:ok, tenant} = Storage.fetch(state.key)
+    state.tenant_module.terminate(reason, {tenant, state.tenant_state})
   end
 
-  defp run_async(async) when is_function(async, 0) do
-    async.()
+  defp describe({tenant_module, tenant_id}) do
+    "#{inspect(tenant_module)}<#{tenant_id}>"
   end
 
-  defp run_async({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a) do
-    apply(m, f, a)
-  end
-
-  defp handle_reply_callback(reply, state) do
+  defp handle_reply_callback(reply, %__MODULE__{} = state) do
     case reply do
       {:reply, reply, tenant_state} ->
         {:reply, reply, %{state | tenant_state: tenant_state}}
@@ -423,25 +434,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  defp handle_noreply_callback(reply, state) do
+  defp handle_noreply_callback(reply, %__MODULE__{} = state) do
     case reply do
       {:noreply, tenant_state} ->
         {:noreply, %{state | tenant_state: tenant_state}}
 
       {:noreply, tenant_state, timeout_or_hibernate_or_continue} ->
         {:noreply, %{state | tenant_state: tenant_state}, timeout_or_hibernate_or_continue}
-    end
-  end
-
-  defp wrap_reply(request, tenant_module, callback, state) do
-    case apply(tenant_module, callback, [request, {state.tenant, state.tenant_state}]) do
-      reply
-      when is_tuple(reply) and tuple_size(reply) in [2, 3] and elem(reply, 0) === :noreply ->
-        handle_noreply_callback(reply, state)
-
-      {:stop, reason, tenant_state} ->
-        Logger.debug(describe(state) <> " is stopped with reason: #{inspect(reason)}.")
-        {:stop, reason, %{state | tenant_state: tenant_state}}
     end
   end
 
@@ -457,9 +456,25 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     # TODO: send uninstall result through webhook
   end
 
-  defp describe(%__MODULE__{} = state) do
-    %{tenant: tenant, tenant_module: tenant_module} = state
+  defp run_async(async) when is_function(async, 0) do
+    async.()
+  end
 
-    "#{inspect(tenant_module)}<#{tenant.id}>"
+  defp run_async({m, f, a}) when is_atom(m) and is_atom(f) and is_list(a) do
+    apply(m, f, a)
+  end
+
+  defp wrap_reply(request, callback, %__MODULE__{} = state) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
+    case apply(state.tenant_module, callback, [request, {tenant, state.tenant_state}]) do
+      reply
+      when is_tuple(reply) and tuple_size(reply) in [2, 3] and elem(reply, 0) === :noreply ->
+        handle_noreply_callback(reply, state)
+
+      {:stop, reason, tenant_state} ->
+        Logger.debug(describe(state.key) <> " is stopped with reason: #{inspect(reason)}.")
+        {:stop, reason, %{state | tenant_state: tenant_state}}
+    end
   end
 end

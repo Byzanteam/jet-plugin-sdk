@@ -9,6 +9,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
   alias JetPluginSDK.Support.Tenant.Naive, as: NaiveTenant
   alias JetPluginSDK.Support.Tenant.ValidateConfig, as: ValidateConfigTenant
 
+  alias JetPluginSDK.TenantMan.Storage
   alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
   alias JetPluginSDK.TenantMan.Tenants.Tenant
 
@@ -26,7 +27,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
   describe "fetch_tenant" do
     test "works", %{tenant: tenant} do
-      {:ok, _pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
+      {:ok, pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
+
+      NaiveTenant.ping(pid)
 
       assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(NaiveTenant, tenant.id)
     end
@@ -42,9 +45,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
       {:ok, _pid} = TenantsSupervisor.start_tenant(ValidateConfigTenant, tenant)
 
       assert :ok = Tenant.install(ValidateConfigTenant, tenant.id)
-      assert :ok = Tenant.update(ValidateConfigTenant, tenant.id, %{name: "bar"})
 
       assert {:ok, %{config: %{name: "bar"}}} =
+               Tenant.fetch_tenant(ValidateConfigTenant, tenant.id)
+
+      assert :ok = Tenant.update(ValidateConfigTenant, tenant.id, %{name: "baz"})
+
+      assert {:ok, %{config: %{name: "baz"}}} =
                Tenant.fetch_tenant(ValidateConfigTenant, tenant.id)
     end
 
@@ -55,6 +62,20 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
       assert :async = Tenant.update(AsyncTenant, tenant.id, %{name: "bar"})
       assert {:ok, %{config: %{name: "bar"}}} = Tenant.fetch_tenant(AsyncTenant, tenant.id)
+    end
+  end
+
+  describe "terminate" do
+    test "works", %{tenant: tenant} do
+      {:ok, pid} = TenantsSupervisor.start_tenant(NaiveTenant, tenant)
+
+      NaiveTenant.ping(pid)
+
+      assert {:ok, _tenant} = Storage.fetch({NaiveTenant, tenant.id})
+
+      GenServer.stop(pid)
+
+      assert :error = Storage.fetch({NaiveTenant, tenant.id})
     end
   end
 
