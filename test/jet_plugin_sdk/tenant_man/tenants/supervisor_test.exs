@@ -1,5 +1,5 @@
 defmodule JetPluginSDK.TenantMan.Tenants.SupervisorTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   @moduletag :unit
 
