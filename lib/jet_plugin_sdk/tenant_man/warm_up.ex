@@ -6,8 +6,16 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
   require Logger
 
   alias JetPluginSDK.JetClient
+  alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
 
-  @type start_opts() :: [tenant_module: module()]
+  @type instance() :: %{tenant_id: JetPluginSDK.Tenant.id(), state: String.t()}
+  @type list_instances() :: (() -> {:ok, [instance()]} | {:error, term()})
+
+  @type start_opts() :: [
+          tenant_module: module(),
+          list_instances: list_instances(),
+          start_tenant_opts: TenantsSupervisor.start_tenant_opts()
+        ]
 
   @spec start_link(start_opts()) :: {:ok, pid()}
   def start_link(opts) do
@@ -16,12 +24,15 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
 
   @spec run(start_opts()) :: :ok
   def run(opts) do
+    {tenant_module, opts} = Keyword.pop!(opts, :tenant_module)
+    {list_instances, opts} = Keyword.pop(opts, :list_instances, &JetClient.list_instances/0)
+
     Logger.debug("Start warming up tenants.")
 
-    case fetch_instances() do
+    case list_instances(list_instances) do
       {:ok, instances} ->
-        tenant_module = Keyword.fetch!(opts, :tenant_module)
-        start_tenants(instances, tenant_module)
+        start_tenant_opts = Keyword.get(opts, :start_tenant_opts, [])
+        start_tenants(instances, tenant_module, start_tenant_opts)
         Logger.debug("Warm up tenants completed.")
         exit(:normal)
 
@@ -30,10 +41,11 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
     end
   end
 
-  defp fetch_instances do
+  @spec list_instances(list_instances()) :: {:ok, [instance()]} | {:error, term()}
+  defp list_instances(list_instances) when is_function(list_instances, 0) do
     Logger.debug("Start requesting Jet to retrieve plugin instances.")
 
-    case JetClient.fetch_instances() do
+    case list_instances.() do
       {:ok, instances} ->
         Logger.debug("Request completed, got #{inspect(length(instances))} instances.")
         {:ok, instances}
@@ -44,27 +56,19 @@ defmodule JetPluginSDK.TenantMan.WarmUp do
     end
   end
 
-  defp start_tenants(instances, tenant_module) do
+  @spec start_tenants([instance()], module(), TenantsSupervisor.start_tenant_opts()) :: :ok
+  defp start_tenants(instances, tenant_module, start_tenant_opts) do
     instances
     |> Stream.reject(fn instance ->
       normalize_state(instance.state) === :pending
     end)
     |> Enum.each(fn instance ->
-      %{
-        tenant_id: tenant_id,
-        config: config,
-        capabilities: capabilities,
-        state: state
-      } = instance
-
       tenant = %JetPluginSDK.Tenant{
-        id: tenant_id,
-        config: config,
-        capabilities: capabilities,
-        state: normalize_state(state)
+        id: instance.tenant_id,
+        state: normalize_state(instance.state)
       }
 
-      JetPluginSDK.TenantMan.Tenants.Supervisor.start_tenant(tenant_module, tenant)
+      TenantsSupervisor.start_tenant(tenant_module, tenant, start_tenant_opts)
     end)
   end
 

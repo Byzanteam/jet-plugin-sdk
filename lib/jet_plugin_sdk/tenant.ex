@@ -18,8 +18,8 @@ defmodule JetPluginSDK.Tenant do
 
   @type t() :: %__MODULE__{
           id: id(),
-          config: config(),
-          capabilities: [map()],
+          config: config() | nil,
+          capabilities: [map()] | nil,
           state: :installing | :running | :updating
         }
 
