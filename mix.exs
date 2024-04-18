@@ -32,6 +32,7 @@ defmodule JetPluginSDK.MixProject do
       {:joken, "~> 2.6"},
       {:plug, "~> 1.14"},
       {:absinthe_client, "~> 0.1.0"},
+      {:req, "~> 0.4.14", override: true},
       {:mimic, "~> 1.7", only: :test}
     ]
   end

@@ -75,6 +75,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
 
       GenServer.stop(pid)
 
+      # 等待 Storage 处理完 tenant 退出的消息
+      Storage.insert(:key, :tenant)
+
       assert :error = Storage.fetch({NaiveTenant, tenant.id})
     end
   end

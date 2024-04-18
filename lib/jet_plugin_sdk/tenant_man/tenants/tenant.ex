@@ -325,15 +325,17 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   def handle_continue({:"$tenant_man", {:install_async, async}}, %__MODULE__{} = state) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_install_result()
+        report_install_result(tenant.id)
 
         {:noreply, %{state | tenant_state: tenant_state},
          {:continue, {:"$tenant_man", :handle_run}}}
 
-      {:error, _reason} ->
-        report_install_result()
+      {:error, reason} ->
+        report_install_result(tenant.id, reason)
         {:noreply, state}
     end
   end
@@ -358,12 +360,12 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_update_result()
+        report_update_result(tenant.id)
         Storage.update(state.key, %{tenant | config: config})
         {:noreply, %{state | tenant_state: tenant_state}}
 
-      {:error, _reason} ->
-        report_update_result()
+      {:error, reason} ->
+        report_update_result(tenant.id, reason)
         {:noreply, state}
     end
   end
@@ -376,36 +378,40 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_update_result()
+        report_update_result(tenant.id)
         Storage.update(state.key, %{tenant | config: config})
         {:noreply, %{state | tenant_state: tenant_state}, extra}
 
-      {:error, _reason} ->
-        report_update_result()
+      {:error, reason} ->
+        report_update_result(tenant.id, reason)
         {:noreply, state, extra}
     end
   end
 
   def handle_continue({:"$tenant_man", {:uninstall_async, async}}, %__MODULE__{} = state) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_uninstall_result()
+        report_uninstall_result(tenant.id)
         {:noreply, %{state | tenant_state: tenant_state}}
 
-      {:error, _reason} ->
-        report_uninstall_result()
+      {:error, reason} ->
+        report_uninstall_result(tenant.id, reason)
         {:noreply, state}
     end
   end
 
   def handle_continue({:"$tenant_man", {:uninstall_async, async, extra}}, %__MODULE__{} = state) do
+    {:ok, tenant} = Storage.fetch(state.key)
+
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_uninstall_result()
+        report_uninstall_result(tenant.id)
         {:noreply, %{state | tenant_state: tenant_state}, extra}
 
-      {:error, _reason} ->
-        report_uninstall_result()
+      {:error, reason} ->
+        report_uninstall_result(tenant.id, reason)
         {:noreply, state, extra}
     end
   end
@@ -420,8 +426,31 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     state.tenant_module.terminate(reason, {tenant, state.tenant_state})
   end
 
+  defp build_payload(tenant_id, type, reason) do
+    errors =
+      if is_nil(reason) do
+        []
+      else
+        [%{"reason" => inspect(reason)}]
+      end
+
+    %{
+      type => %{
+        "success" => is_nil(reason),
+        "instanceId" => extract_instance_id(tenant_id),
+        "errors" => errors
+      }
+    }
+  end
+
   defp describe({tenant_module, tenant_id}) do
     "#{inspect(tenant_module)}<#{tenant_id}>"
+  end
+
+  defp extract_instance_id(tenant_id) do
+    tenant_id
+    |> JetPluginSDK.Tenant.split_tenant_id()
+    |> elem(2)
   end
 
   defp handle_reply_callback(reply, %__MODULE__{} = state) do
@@ -444,16 +473,22 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  defp report_install_result do
-    # TODO: send install result through webhook
+  defp report_install_result(tenant_id, reason \\ nil) do
+    tenant_id
+    |> build_payload("install", reason)
+    |> JetPluginSDK.JetClient.send_event()
   end
 
-  defp report_update_result do
-    # TODO: send update result through webhook
+  defp report_update_result(tenant_id, reason \\ nil) do
+    tenant_id
+    |> build_payload("update", reason)
+    |> JetPluginSDK.JetClient.send_event()
   end
 
-  defp report_uninstall_result do
-    # TODO: send uninstall result through webhook
+  defp report_uninstall_result(tenant_id, reason \\ nil) do
+    tenant_id
+    |> build_payload("uninstall", reason)
+    |> JetPluginSDK.JetClient.send_event()
   end
 
   defp run_async(async) when is_function(async, 0) do
