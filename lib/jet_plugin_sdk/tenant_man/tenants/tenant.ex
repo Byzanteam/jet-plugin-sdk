@@ -432,8 +432,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def terminate(reason, %__MODULE__{} = state) do
-    {:ok, tenant} = Storage.fetch(state.key)
-    state.tenant_module.terminate(reason, {tenant, state.tenant_state})
+    case Storage.fetch(state.key) do
+      {:ok, tenant} ->
+        state.tenant_module.terminate(reason, {tenant, state.tenant_state})
+
+      :error ->
+        # if the tenant is stopped before `Storage.insert`
+        :ok
+    end
   end
 
   defp build_payload(tenant_id, type, reason) do
