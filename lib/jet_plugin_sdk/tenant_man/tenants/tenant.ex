@@ -86,9 +86,10 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
       @behaviour unquote(__MODULE__)
 
-      @spec start(tenant :: JetPluginSDK.Tenant.t()) :: DynamicSupervisor.on_start_child()
-      def start(tenant) do
-        Manager.start_tenant(__MODULE__, tenant)
+      @spec start(tenant :: JetPluginSDK.Tenant.t(), opts :: Manager.start_tenant_opts()) ::
+              DynamicSupervisor.on_start_child()
+      def start(tenant, opts \\ []) do
+        Manager.start_tenant(__MODULE__, tenant, opts)
       end
 
       @spec fetch(tenant_id :: JetPluginSDK.Tenant.id()) ::
@@ -137,14 +138,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
+  @type instance() :: %{config: tenant_config(), capabilities: tenent_capabilities()}
+
   @type start_link_opts() :: [
           name: Registry.name(),
           tenant_module: module(),
           tenant: tenant_schema(),
-          fetch_instance:
-            (tenant_id() ->
-               {:ok, %{config: tenant_config(), capabilities: tenent_capabilities()}}
-               | {:error, term()})
+          fetch_instance: (tenant_id() -> {:ok, instance()} | {:error, term()})
         ]
 
   @spec fetch_tenant(tenant_module :: module(), tenant_id :: tenant_id()) ::
@@ -432,8 +432,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def terminate(reason, %__MODULE__{} = state) do
-    {:ok, tenant} = Storage.fetch(state.key)
-    state.tenant_module.terminate(reason, {tenant, state.tenant_state})
+    case Storage.fetch(state.key) do
+      {:ok, tenant} ->
+        state.tenant_module.terminate(reason, {tenant, state.tenant_state})
+
+      :error ->
+        # if the tenant is stopped before `Storage.insert`
+        :ok
+    end
   end
 
   defp build_payload(tenant_id, type, reason) do

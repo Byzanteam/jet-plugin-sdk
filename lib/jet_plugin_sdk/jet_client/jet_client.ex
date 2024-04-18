@@ -21,18 +21,8 @@ defmodule JetPluginSDK.JetClient do
           access_key: String.t()
         }
 
-  @type instance() :: %{
-          tenant_id: Tenant.id(),
-          project_id: String.t(),
-          environment_id: String.t(),
-          id: String.t(),
-          config: nil | map(),
-          capabilities: [map()],
-          state: String.t()
-        }
-
   @spec fetch_instance(Tenant.id()) ::
-          {:ok, %{config: Tenant.config(), capabilities: Tenant.capabilities()}}
+          {:ok, JetPluginSDK.TenantMan.Tenants.Tenant.instance()}
           | {:error, Req.Response.t() | GraphQLClient.error()}
   def fetch_instance(tenant_id) do
     {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
@@ -69,23 +59,16 @@ defmodule JetPluginSDK.JetClient do
     end
   end
 
-  @spec fetch_instances() ::
-          {:ok, [instance()]} | {:error, Req.Response.t() | GraphQLClient.error()}
-  def fetch_instances do
+  @spec list_instances() ::
+          {:ok, [JetPluginSDK.TenantMan.WarmUp.instance()]}
+          | {:error, Req.Response.t() | GraphQLClient.error()}
+  def list_instances do
     instances_query = """
     query Instances {
       instances {
         projectId
         environmentId
         id
-        config
-        capabilities {
-          __typename
-          ... on PluginInstanceCapabilityDatabase {
-            schema
-            databaseUrl
-          }
-        }
         state
       }
     }
@@ -154,18 +137,11 @@ defmodule JetPluginSDK.JetClient do
         "projectId" => project_id,
         "environmentId" => environment_id,
         "id" => id,
-        "config" => config,
-        "capabilities" => capabilities,
         "state" => state
       } = instance
 
       %{
         tenant_id: Tenant.build_tenant_id(project_id, environment_id, id),
-        project_id: project_id,
-        environment_id: environment_id,
-        id: id,
-        config: config && Jason.decode!(config),
-        capabilities: capabilities,
         state: state
       }
     end)

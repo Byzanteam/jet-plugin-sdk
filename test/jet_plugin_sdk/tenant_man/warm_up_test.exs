@@ -1,20 +1,20 @@
 defmodule JetPluginSDK.TenantMan.WarmUpTest do
-  use ExUnit.Case
-  use Mimic
+  use ExUnit.Case, async: true
 
   alias JetPluginSDK.TenantMan.WarmUp
 
   @moduletag :unit
 
-  setup :set_mimic_global
-  setup :verify_on_exit!
-
   test "works" do
-    expect(JetPluginSDK.JetClient, :fetch_instances, fn ->
-      {:ok, Enum.map(1..6, fn _i -> build_instance() end)}
-    end)
+    list_instances = fn -> {:ok, Enum.map(1..6, fn _i -> build_instance() end)} end
 
-    pid = spawn(fn -> WarmUp.run(tenant_module: JetPluginSDK.Support.Tenant.Naive) end)
+    pid =
+      spawn(fn ->
+        WarmUp.run(
+          tenant_module: JetPluginSDK.Support.Tenant.Naive,
+          list_instances: list_instances
+        )
+      end)
 
     ref = Process.monitor(pid)
 
@@ -22,9 +22,15 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
   end
 
   test "failed" do
-    expect(JetPluginSDK.JetClient, :fetch_instances, fn -> {:error, :reason} end)
+    list_instances = fn -> {:error, :reason} end
 
-    pid = spawn(fn -> WarmUp.run(tenant_module: JetPluginSDK.Support.Tenant.Naive) end)
+    pid =
+      spawn(fn ->
+        WarmUp.run(
+          tenant_module: JetPluginSDK.Support.Tenant.Naive,
+          list_instances: list_instances
+        )
+      end)
 
     ref = Process.monitor(pid)
 
@@ -32,15 +38,8 @@ defmodule JetPluginSDK.TenantMan.WarmUpTest do
   end
 
   defp build_instance do
-    {proj_id, env_id, inst_id} = {generate_id(), generate_id(), generate_id()}
-
     %{
-      tenant_id: JetPluginSDK.Tenant.build_tenant_id(proj_id, env_id, inst_id),
-      project_id: proj_id,
-      environment_id: env_id,
-      id: inst_id,
-      config: %{"foo" => generate_id()},
-      capabilities: [],
+      tenant_id: JetPluginSDK.Tenant.build_tenant_id(generate_id(), generate_id(), generate_id()),
       state: "RUNNING"
     }
   end

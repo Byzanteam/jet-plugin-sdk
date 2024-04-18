@@ -5,14 +5,25 @@ defmodule JetPluginSDK.TenantMan.Tenants.Supervisor do
 
   alias JetPluginSDK.TenantMan.Registry
 
-  @spec start_tenant(tenant_module :: module(), tenant :: JetPluginSDK.Tenant.t()) ::
+  @type start_tenant_opts() :: [
+          fetch_instance:
+            (JetPluginSDK.Tenant.id() ->
+               {:ok, JetPluginSDK.TenantMan.Tenants.Tenant.instance()}
+               | {:error, term()})
+        ]
+  @spec start_tenant(
+          tenant_module :: module(),
+          tenant :: JetPluginSDK.Tenant.t(),
+          start_tenant_opts()
+        ) ::
           DynamicSupervisor.on_start_child()
-  def start_tenant(tenant_module, tenant) do
-    args = [
-      name: Registry.name(tenant_module, tenant.id),
-      tenant: tenant,
-      tenant_module: tenant_module
-    ]
+  def start_tenant(tenant_module, tenant, opts \\ []) do
+    args =
+      Keyword.merge(opts,
+        name: Registry.name(tenant_module, tenant.id),
+        tenant: tenant,
+        tenant_module: tenant_module
+      )
 
     DynamicSupervisor.start_child(__MODULE__, {JetPluginSDK.TenantMan.Tenants.Tenant, args})
   end
