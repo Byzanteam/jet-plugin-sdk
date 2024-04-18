@@ -14,6 +14,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
   @typep tenant_schema() :: JetPluginSDK.Tenant.t()
   @typep tenant_config() :: JetPluginSDK.Tenant.config()
+  @typep tenent_capabilities() :: JetPluginSDK.Tenant.capabilities()
   @typep tenant_state() :: term()
   @typep state() :: {tenant_schema(), tenant_state()}
   @typep async() :: {module(), atom(), args :: [term()]} | function()
@@ -139,7 +140,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @type start_link_opts() :: [
           name: Registry.name(),
           tenant_module: module(),
-          tenant: tenant_schema()
+          tenant: tenant_schema(),
+          fetch_instance:
+            (tenant_id() ->
+               {:ok, %{config: tenant_config(), capabilities: tenent_capabilities()}}
+               | {:error, term()})
         ]
 
   @spec fetch_tenant(tenant_module :: module(), tenant_id :: tenant_id()) ::
@@ -193,13 +198,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   def init(opts) do
     tenant_module = Keyword.fetch!(opts, :tenant_module)
     tenant = Keyword.fetch!(opts, :tenant)
+    fetch_instance = Keyword.get(opts, :fetch_instance, &JetPluginSDK.JetClient.fetch_instance/1)
 
     state = %__MODULE__{
       key: Storage.build_key(tenant_module, tenant),
       tenant_module: tenant_module
     }
 
-    {:ok, state, {:continue, {:"$tenant_man", {:fetch_instance, tenant}}}}
+    {:ok, state, {:continue, {:"$tenant_man", {:fetch_instance, fetch_instance, tenant}}}}
   end
 
   @impl GenServer
@@ -302,9 +308,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   @impl GenServer
-  def handle_continue({:"$tenant_man", {:fetch_instance, tenant}}, %__MODULE__{} = state) do
-    with {:ok, instance} <- JetPluginSDK.JetClient.fetch_instance(tenant.id),
-         :ok <- Storage.insert(state.key, Map.merge(tenant, instance)) do
+  def handle_continue(
+        {:"$tenant_man", {:fetch_instance, fetch_instance, tenant}},
+        %__MODULE__{} = state
+      )
+      when is_function(fetch_instance, 1) do
+    with {:ok, instance} <- fetch_instance.(tenant.id),
+         :ok <- Storage.insert(state.key, struct(tenant, instance)) do
       {:noreply, state}
     else
       {:error, reason} ->
