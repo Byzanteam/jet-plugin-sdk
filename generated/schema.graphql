@@ -30,6 +30,11 @@ type JetPluginCallbackResponseOk implements JetPluginCallbackResponse {
   extensions: String
 }
 
+type JetPluginCallbackResponseAsync implements JetPluginCallbackResponse {
+  message: String
+  extensions: String
+}
+
 """
 Issued when an argument of unexpected format is received.
 For example, a field `email` of type `string` expected an email
@@ -42,6 +47,10 @@ type JetPluginCallbackResponseArgumentError implements JetPluginCallbackResponse
   expected: String!
 }
 
+union JetPluginInitializeResponse = JetPluginManifest | JetPluginCallbackResponseAsync
+
+union JetPluginUninstallResponse = JetPluginCallbackResponseOk | JetPluginCallbackResponseAsync
+
 type RootQueryType {
   jetPluginHealthCheck: JetPluginCallbackResponse
 }
@@ -52,7 +61,7 @@ type RootMutationType {
   immediately with plugin info and calls Jet's `plugin_initialized` api
   to finish initialization.
   """
-  jetPluginInitialize: JetPluginManifest
+  jetPluginInitialize: JetPluginInitializeResponse
 
   "Called when the plugin is installed by a project."
   jetPluginInstall(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
@@ -61,7 +70,7 @@ type RootMutationType {
   jetPluginUpdate(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
 
   "Called when the plugin is uninstalled by a project."
-  jetPluginUninstall(projectId: String!, envId: String!, instanceId: String!): JetPluginCallbackResponse
+  jetPluginUninstall(projectId: String!, envId: String!, instanceId: String!): JetPluginUninstallResponse
 }
 
 input JetPluginConfig {
