@@ -40,6 +40,22 @@ defmodule JetPluginSDK.TenantMan.Tenants.TenantTest do
     end
   end
 
+  describe "works with custom fetch_tenant" do
+    test "works", %{tenant: tenant} do
+      tenant_id = tenant.id
+      parent = self()
+
+      fetch_instance = fn ^tenant_id ->
+        send(parent, {:instance_fetched, tenant_id})
+        {:ok, %{config: %{name: "bar"}}}
+      end
+
+      {:ok, _pid} = NaiveTenant.start(tenant, fetch_instance: fetch_instance)
+
+      assert_receive {:instance_fetched, ^tenant_id}
+    end
+  end
+
   describe "update" do
     test "works", %{tenant: tenant} do
       {:ok, _pid} = TenantsSupervisor.start_tenant(ValidateConfigTenant, tenant)

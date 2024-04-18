@@ -32,7 +32,7 @@ defmodule JetPluginSDK.JetClient do
         }
 
   @spec fetch_instance(Tenant.id()) ::
-          {:ok, %{config: Tenant.config(), capabilities: Tenant.capabilities()}}
+          {:ok, JetPluginSDK.TenantMan.Tenants.Tenant.instance()}
           | {:error, Req.Response.t() | GraphQLClient.error()}
   def fetch_instance(tenant_id) do
     {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
