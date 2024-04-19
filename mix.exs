@@ -5,6 +5,7 @@ defmodule JetPluginSDK.MixProject do
     [
       app: :jet_plugin_sdk,
       version: "0.1.0",
+      name: "JetPluginSDK",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
@@ -26,13 +27,14 @@ defmodule JetPluginSDK.MixProject do
 
   defp deps do
     [
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:absinthe, "~> 1.7"},
+      {:absinthe_client, "~> 0.1.0"},
       {:joken, "~> 2.6"},
       {:plug, "~> 1.14"},
-      {:absinthe_client, "~> 0.1.0"},
       {:req, "~> 0.4.14", override: true},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:mimic, "~> 1.7", only: :test}
     ]
   end
