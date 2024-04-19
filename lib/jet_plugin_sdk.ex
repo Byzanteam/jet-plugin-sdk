@@ -4,7 +4,7 @@ defmodule JetPluginSDK do
 
   ## Tenant
 
-  SDK 提供了一套 behaviour 抽象用来实现插件的声明周期功能，只需实现 behaviour 中
+  SDK 提供了一套 behaviour 抽象用来实现插件的生命周期功能，只需实现 behaviour 中
   定义的回调函数即可。
 
   ```elixir
