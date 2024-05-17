@@ -14,7 +14,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
   @typep tenant_schema() :: JetPluginSDK.Tenant.t()
   @typep tenant_config() :: JetPluginSDK.Tenant.config()
-  @typep tenent_capabilities() :: JetPluginSDK.Tenant.capabilities()
+  @typep tenant_capabilities() :: JetPluginSDK.Tenant.capabilities()
   @typep tenant_state() :: term()
   @typep state() :: {tenant_schema(), tenant_state()}
   @typep async() :: {module(), atom(), args :: [term()]} | function()
@@ -138,7 +138,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  @type instance() :: %{config: tenant_config(), capabilities: tenent_capabilities()}
+  @type instance() :: %{config: tenant_config(), capabilities: tenant_capabilities()}
 
   @type start_link_opts() :: [
           name: Registry.name(),
