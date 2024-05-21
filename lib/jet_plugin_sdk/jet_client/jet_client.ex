@@ -90,40 +90,6 @@ defmodule JetPluginSDK.JetClient do
     end
   end
 
-  @deprecated "fetch database infomation from tenant instead."
-  @spec fetch_tenant_database(Tenant.id(), config()) ::
-          {:ok, [capability :: map()]} | {:error, Req.Response.t()} | GraphQLClient.error()
-  def fetch_tenant_database(tenant_id, config) do
-    {project_id, env_id, instance_id} = Tenant.split_tenant_id(tenant_id)
-    variables = %{"projectId" => project_id, "environmentId" => env_id, "id" => instance_id}
-
-    instance_query = """
-    query Instance(
-      $projectId: String!
-      $environmentId: String!
-      $id: String!
-    ) {
-      instance(
-        projectId: $projectId,
-        environmentId: $environmentId,
-        id: $id
-      ) {
-        capabilities {
-          __typename
-          ... on PluginInstanceCapabilityDatabase {
-            schema
-            databaseUrl
-          }
-        }
-      }
-    }
-    """
-
-    with {:ok, response} <- query(instance_query, variables, config) do
-      fetch_data(response, ["data", "instance", "capabilities"])
-    end
-  end
-
   @spec build_config() :: config()
   defp build_config do
     :jet_plugin_sdk
