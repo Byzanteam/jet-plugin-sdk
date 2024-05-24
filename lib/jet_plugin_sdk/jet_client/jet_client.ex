@@ -21,44 +21,6 @@ defmodule JetPluginSDK.JetClient do
           access_key: String.t()
         }
 
-  @spec fetch_instance(Tenant.id()) ::
-          {:ok, JetPluginSDK.TenantMan.Tenants.Tenant.instance()}
-          | {:error, Req.Response.t() | GraphQLClient.error()}
-  def fetch_instance(tenant_id) do
-    {pid, eid, iid} = Tenant.split_tenant_id(tenant_id)
-    variables = %{"projectId" => pid, "environmentId" => eid, "id" => iid}
-
-    instance_query = """
-    query Instance (
-      $projectId: String!
-      $environmentId: String!
-      $id: String!
-    ) {
-      instance(
-        projectId: $projectId,
-        environmentId: $environmentId,
-        id: $id
-      ) {
-        config
-        capabilities {
-          __typename
-          ... on PluginInstanceCapabilityDatabase {
-            schema
-            databaseUrl
-          }
-        }
-      }
-    }
-    """
-
-    with {:ok, response} <- query(instance_query, variables, build_config()),
-         {:ok, config} <- fetch_data(response, ["data", "instance", "config"]),
-         {:ok, capabilities} <- fetch_data(response, ["data", "instance", "capabilities"]),
-         {:ok, config} <- Jason.decode(config) do
-      {:ok, %{config: config, capabilities: capabilities}}
-    end
-  end
-
   @spec list_instances() ::
           {:ok, [JetPluginSDK.TenantMan.WarmUp.instance()]}
           | {:error, Req.Response.t() | GraphQLClient.error()}
@@ -70,6 +32,14 @@ defmodule JetPluginSDK.JetClient do
         environmentId
         id
         state
+        config
+        capabilities {
+          __typename
+          ... on PluginInstanceCapabilityDatabase {
+            schema
+            databaseUrl
+          }
+        }
       }
     }
     """
@@ -103,12 +73,16 @@ defmodule JetPluginSDK.JetClient do
         "projectId" => project_id,
         "environmentId" => environment_id,
         "id" => id,
-        "state" => state
+        "state" => state,
+        "config" => config,
+        "capabilities" => capabilities
       } = instance
 
       %{
         tenant_id: Tenant.build_tenant_id(project_id, environment_id, id),
-        state: state
+        state: state,
+        config: Jason.decode!(config),
+        capabilities: capabilities
       }
     end)
   end
