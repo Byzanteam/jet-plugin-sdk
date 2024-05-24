@@ -54,8 +54,22 @@ defmodule JetPluginSDK.TenantMan.Storage do
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _ref, :process, pid, _reason}, table) do
+  def handle_info({:DOWN, _ref, :process, pid, :normal}, table) do
     :ets.match_delete(table, {:"$1", pid, :"$2"})
+    {:noreply, table}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, :shutdown}, table) do
+    :ets.match_delete(table, {:"$1", pid, :"$2"})
+    {:noreply, table}
+  end
+
+  def handle_info({:DOWN, _ref, :process, pid, {:shutdown, _term}}, table) do
+    :ets.match_delete(table, {:"$1", pid, :"$2"})
+    {:noreply, table}
+  end
+
+  def handle_info({:DOWN, _ref, :process, _pid, _reason}, table) do
     {:noreply, table}
   end
 end
