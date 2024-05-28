@@ -93,18 +93,18 @@ defmodule JetPluginSDK.GraphQLClient do
     case Keyword.get(opts, :max_retries, 3) do
       max_retries when is_integer(max_retries) and max_retries > 0 ->
         Req.Request.merge_options(request,
-          retry: &should_retry?/1,
+          retry: &should_retry?/2,
           # Req 自带的 exp_backoff 不支持指定初始值
           retry_delay: &exp_backoff(&1, Keyword.get(opts, :retry_init_delay, 1_000)),
           max_retries: max_retries
         )
 
       _otherwise ->
-        Req.Request.merge_options(request, retry: false)
+        Req.Request.merge_options(request, retry: fn _req, _resp_or_exception -> false end)
     end
   end
 
-  defp should_retry?(response_or_exception) do
+  defp should_retry?(_request, response_or_exception) do
     case response_or_exception do
       # 当 server 系统错误时 retry
       %Req.Response{status: status} when status in [408, 429] or status in 500..599 ->
