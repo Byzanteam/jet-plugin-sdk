@@ -3,9 +3,10 @@ defmodule JetPluginSDK.Tenant do
 
   @type id() :: String.t()
   @type config() :: map()
-  @type capabilities() :: [map()]
+  @type database_capability() :: JetPluginSDK.DatabaseCapability.t()
+  @type capabilities() :: [database_capability()]
 
-  @enforce_keys [:id, :state]
+  @enforce_keys [:id, :state, :config, :capabilities]
 
   @delimiter "_"
 
@@ -18,9 +19,16 @@ defmodule JetPluginSDK.Tenant do
 
   @type t() :: %__MODULE__{
           id: id(),
-          config: config() | nil,
-          capabilities: [map()] | nil,
-          state: :installing | :running | :updating
+          config: config(),
+          capabilities: [database_capability()],
+          state:
+            :pending
+            | :installing
+            | :running
+            | :updating
+            | :uninstalling
+            | :error_occurred
+            | :uninstalled
         }
 
   @spec build_tenant_id(

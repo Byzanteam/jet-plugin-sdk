@@ -22,7 +22,7 @@ defmodule JetPluginSDK.JetClient do
         }
 
   @spec list_instances() ::
-          {:ok, [JetPluginSDK.TenantMan.WarmUp.instance()]}
+          {:ok, [Tenant.t()]}
           | {:error, Req.Response.t() | GraphQLClient.error()}
   def list_instances do
     instances_query = """
@@ -78,11 +78,11 @@ defmodule JetPluginSDK.JetClient do
         "capabilities" => capabilities
       } = instance
 
-      %{
-        tenant_id: Tenant.build_tenant_id(project_id, environment_id, id),
-        state: state,
+      %Tenant{
+        id: Tenant.build_tenant_id(project_id, environment_id, id),
+        state: normalize_state(state),
         config: Jason.decode!(config),
-        capabilities: capabilities
+        capabilities: normalize_capabilities(capabilities)
       }
     end)
   end
@@ -100,5 +100,22 @@ defmodule JetPluginSDK.JetClient do
       headers: [{"x-jet-plugin-access-key", config.access_key}],
       variables: variables
     )
+  end
+
+  defp normalize_state("PENDING"), do: :pending
+  defp normalize_state("INSTALLING"), do: :installing
+  defp normalize_state("RUNNING"), do: :running
+  defp normalize_state("UPDATING"), do: :updating
+  defp normalize_state("UNINSTALLING"), do: :uninstalling
+  defp normalize_state("ERROR_OCCURRED"), do: :error_occurred
+
+  defp normalize_capabilities(capabilities) do
+    capabilities
+    |> Enum.filter(fn capability ->
+      Map.get(capability, "__typename") == "PluginInstanceCapabilityDatabase"
+    end)
+    |> Enum.map(fn capability ->
+      JetPluginSDK.DatabaseCapability.from_map(capability)
+    end)
   end
 end
