@@ -18,13 +18,6 @@ defmodule JetPluginSDK.MixProject do
     ]
   end
 
-  def application do
-    [
-      mod: {JetPluginSDK.Application, []},
-      extra_applications: [:logger, :runtime_tools]
-    ]
-  end
-
   defp deps do
     [
       {:absinthe, "~> 1.7"},

@@ -1,75 +1,181 @@
 defmodule JetPluginSDK.TenantMan.Storage do
-  @moduledoc false
+  @moduledoc """
+  The source of truth for tenant data.
+  """
+
+  require Logger
+
+  alias JetPluginSDK.Tenant
+  alias JetPluginSDK.TenantMan.Tenants.Supervisor, as: TenantsSupervisor
 
   use GenServer
 
-  @typep key() :: {tenant_module :: module(), tenant_id :: JetPluginSDK.Tenant.id()}
-  @typep tenant() :: JetPluginSDK.Tenant.t()
+  @enforce_keys [:naming_fun, :table, :tenant_module]
+  defstruct [:naming_fun, :table, :tenant_module, instances: %{}]
 
-  @spec build_key(tenant_module :: module(), tenant :: tenant()) :: key()
-  def build_key(tenant_module, tenant) do
-    {tenant_module, tenant.id}
+  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
+  @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
+  @typep tenant_id() :: JetPluginSDK.Tenant.id()
+  @typep tenant() :: JetPluginSDK.Tenant.t()
+  @typep state() :: %__MODULE__{
+           naming_fun: naming_fun(),
+           table: :ets.table(),
+           tenant_module: tenant_module(),
+           instances: %{pid() => {tenant_id(), reference()}}
+         }
+
+  @spec fetch!(naming_fun(), tenant_id()) :: tenant()
+  def fetch!(naming_fun, tenant_id) do
+    case fetch(naming_fun, tenant_id) do
+      {:ok, tenant} -> tenant
+      :error -> raise "The tenant with id(#{inspect(tenant_id)}) is not found"
+    end
   end
 
-  @spec fetch(key :: key()) :: {:ok, tenant()} | :error
-  def fetch(key) do
-    case :ets.lookup(__MODULE__, key) do
-      [{^key, _pid, tenant}] -> {:ok, tenant}
+  @spec fetch(naming_fun(), tenant_id()) :: {:ok, tenant()} | :error
+  def fetch(naming_fun, tenant_id) do
+    case :ets.lookup(naming_fun.(:storage), tenant_id) do
+      [{^tenant_id, tenant}] -> {:ok, tenant}
       [] -> :error
     end
   end
 
-  @spec insert(key :: key(), tenant :: JetPluginSDK.Tenant.t()) :: :ok | :error
-  def insert(key, tenant) do
-    GenServer.call(__MODULE__, {:insert, key, tenant})
+  @spec insert(naming_fun(), tenant()) ::
+          {:ok, pid()} | {:error, :already_exists}
+  def insert(naming_fun, tenant) do
+    GenServer.call(naming_fun.(:storage), {:insert, tenant})
   end
 
-  def update(key, tenant) do
-    GenServer.call(__MODULE__, {:update, key, tenant})
+  @spec update!(naming_fun(), tenant()) :: :ok
+  def update!(naming_fun, tenant) do
+    GenServer.call(naming_fun.(:storage), {:update, tenant})
   end
 
-  @spec start_link(args :: keyword()) :: GenServer.on_start()
+  @spec start_link(args :: [naming_fun: naming_fun(), tenant_module: tenant_module()]) ::
+          GenServer.on_start()
   def start_link(args) do
-    GenServer.start_link(__MODULE__, args, name: __MODULE__)
+    naming_fun = Keyword.fetch!(args, :naming_fun)
+
+    GenServer.start_link(__MODULE__, args, name: naming_fun.(:storage))
   end
 
   @impl GenServer
-  def init(_opts) do
-    {:ok, :ets.new(__MODULE__, [:named_table, read_concurrency: true])}
+  def init(opts) do
+    naming_fun = Keyword.fetch!(opts, :naming_fun)
+    tenant_module = Keyword.fetch!(opts, :tenant_module)
+
+    table = :ets.new(naming_fun.(:storage), [:named_table, read_concurrency: true])
+
+    {
+      :ok,
+      __struct__(naming_fun: naming_fun, table: table, tenant_module: tenant_module),
+      {:continue, :warmup}
+    }
   end
 
   @impl GenServer
-  def handle_call({:insert, key, tenant}, {pid, _tag}, table) do
-    if :ets.insert_new(table, {key, pid, tenant}) do
-      Process.monitor(pid)
-      {:reply, :ok, table}
-    else
-      {:reply, :error, table}
+  def handle_call({:insert, tenant}, _from, %__MODULE__{} = state) do
+    case fetch(state.naming_fun, tenant.id) do
+      {:ok, _tenant} ->
+        {:reply, {:error, :already_exists}, state}
+
+      :error ->
+        {pid, state} = insert_tenant(tenant, state)
+
+        {:reply, {:ok, pid}, state}
     end
   end
 
-  def handle_call({:update, key, tenant}, _from, table) do
-    :ets.update_element(table, key, {3, tenant})
-    {:reply, :ok, table}
+  def handle_call({:update, tenant}, _from, %__MODULE__{} = state) do
+    :ets.update_element(state.table, tenant.id, {2, tenant})
+
+    {:reply, :ok, state}
   end
 
   @impl GenServer
-  def handle_info({:DOWN, _ref, :process, pid, :normal}, table) do
-    :ets.match_delete(table, {:"$1", pid, :"$2"})
-    {:noreply, table}
+  def handle_continue(:warmup, %__MODULE__{} = state) do
+    {:ok, instances} = JetPluginSDK.JetClient.list_instances()
+
+    state =
+      instances
+      |> Stream.flat_map(fn
+        %{state: state} when state in [:pending, :installing] ->
+          []
+
+        %{state: state} = tenant when state in [:updating, :uninstalling] ->
+          [%{tenant | state: :running}]
+
+        tenant ->
+          [tenant]
+      end)
+      |> Enum.reduce(state, fn tenant, acc ->
+        tenant
+        |> insert_tenant(acc)
+        |> elem(1)
+      end)
+
+    {:noreply, state}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, :shutdown}, table) do
-    :ets.match_delete(table, {:"$1", pid, :"$2"})
-    {:noreply, table}
+  @impl GenServer
+  def handle_info({:DOWN, ref, :process, pid, reason}, %__MODULE__{} = state) do
+    {tenant_id, ^ref} = Map.fetch!(state.instances, pid)
+    Process.demonitor(ref, [:flush])
+
+    tenant = fetch!(state.naming_fun, tenant_id)
+
+    state =
+      handle_tenant_down(
+        tenant,
+        reason,
+        %{state | instances: Map.delete(state.instances, pid)}
+      )
+
+    {:noreply, state}
   end
 
-  def handle_info({:DOWN, _ref, :process, pid, {:shutdown, _term}}, table) do
-    :ets.match_delete(table, {:"$1", pid, :"$2"})
-    {:noreply, table}
+  defp handle_tenant_down(%Tenant{state: :installing} = tenant, reason, %__MODULE__{} = state) do
+    Logger.debug(describe(tenant, state) <> " installation failed: #{inspect(reason)}")
+
+    :ets.delete(state.table, tenant.id)
+
+    state
   end
 
-  def handle_info({:DOWN, _ref, :process, _pid, _reason}, table) do
-    {:noreply, table}
+  defp handle_tenant_down(%Tenant{state: tenant_state} = tenant, _reason, %__MODULE__{} = state)
+       when tenant_state in [:running, :error_occurred] do
+    Logger.debug(
+      describe(tenant, state) <> " is down due to #{inspect(tenant_state)}, and will be restarted"
+    )
+
+    {:ok, pid} = TenantsSupervisor.start_tenant(state.naming_fun, tenant)
+    ref = Process.monitor(pid)
+
+    %{state | instances: Map.put(state.instances, pid, {tenant.id, ref})}
+  end
+
+  defp handle_tenant_down(%Tenant{state: :uninstalled} = tenant, _reason, %__MODULE__{} = state) do
+    Logger.debug(describe(tenant, state) <> " uninstallation completed")
+
+    :ets.delete(state.table, tenant.id)
+
+    state
+  end
+
+  @spec insert_tenant(tenant(), state()) :: {pid(), state()}
+  defp insert_tenant(tenant, %__MODULE__{} = state) do
+    true = :ets.insert_new(state.table, {tenant.id, tenant})
+
+    {:ok, pid} = TenantsSupervisor.start_tenant(state.naming_fun, tenant)
+    ref = Process.monitor(pid)
+
+    {
+      pid,
+      %{state | instances: Map.put(state.instances, pid, {tenant.id, ref})}
+    }
+  end
+
+  defp describe(tenant, state) do
+    "#{inspect(state.tenant_module)}<#{tenant.id}>"
   end
 end

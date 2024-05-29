@@ -3,29 +3,34 @@ defmodule JetPluginSDK.TenantMan.Supervisor do
 
   use Supervisor
 
-  @type start_opts() :: [warm_up: JetPluginSDK.TenantMan.WarmUp.start_opts()]
+  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
+  @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
 
-  @spec start_link(start_opts()) :: Supervisor.on_start()
+  @spec start_link(
+          naming_fun: naming_fun(),
+          tenant_module: tenant_module(),
+          name: GenServer.name()
+        ) ::
+          Supervisor.on_start()
   def start_link(opts) do
-    {name, opts} = Keyword.pop(opts, :name, __MODULE__)
+    {name, opts} = Keyword.pop!(opts, :name)
+
     Supervisor.start_link(__MODULE__, opts, name: name)
   end
 
   @impl Supervisor
   def init(opts) do
-    warm_up_children =
-      if warm_up_opts = Keyword.get(opts, :warm_up) do
-        [{JetPluginSDK.TenantMan.WarmUp, warm_up_opts}]
-      else
-        []
-      end
+    naming_fun = Keyword.fetch!(opts, :naming_fun)
+    tenant_module = Keyword.fetch!(opts, :tenant_module)
 
-    children =
-      [
-        JetPluginSDK.TenantMan.Registry,
-        JetPluginSDK.TenantMan.Storage,
-        JetPluginSDK.TenantMan.Tenants.Supervisor
-      ] ++ warm_up_children
+    children = [
+      {JetPluginSDK.TenantMan.Registry, naming_fun: naming_fun},
+      {JetPluginSDK.TenantMan.Storage, naming_fun: naming_fun, tenant_module: tenant_module},
+      {
+        JetPluginSDK.TenantMan.Tenants.Supervisor,
+        naming_fun: naming_fun, tenant_module: tenant_module
+      }
+    ]
 
     Supervisor.init(children, strategy: :rest_for_one)
   end
