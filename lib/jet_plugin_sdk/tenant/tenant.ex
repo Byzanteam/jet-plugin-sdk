@@ -2,34 +2,39 @@ defmodule JetPluginSDK.Tenant do
   @moduledoc false
 
   @type id() :: String.t()
-  @type config() :: map()
-  @type database_capability() :: JetPluginSDK.DatabaseCapability.t()
-  @type capabilities() :: [database_capability()]
+  @type config() :: JetPluginSDK.Tenant.Config.t()
+  @type capabilities() :: [JetPluginSDK.Tenant.Capability.t()]
+  @type state() ::
+          :pending
+          | :installing
+          | :running
+          | :updating
+          | :uninstalling
+          | :error_occurred
+          | :uninstalled
 
   @enforce_keys [:id, :state, :config, :capabilities]
 
-  @delimiter "_"
+  defstruct [:id, :state, :config, :capabilities]
 
-  defstruct [
-    :id,
-    :config,
-    :state,
-    capabilities: []
-  ]
+  @delimiter "_"
 
   @type t() :: %__MODULE__{
           id: id(),
           config: config(),
-          capabilities: [database_capability()],
-          state:
-            :pending
-            | :installing
-            | :running
-            | :updating
-            | :uninstalling
-            | :error_occurred
-            | :uninstalled
+          capabilities: capabilities(),
+          state: state()
         }
+
+  @spec build_tenant_id(%{
+          project_id: String.t(),
+          env_id: String.t(),
+          instance_id: String.t()
+        }) ::
+          id()
+  def build_tenant_id(%{project_id: project_id, env_id: env_id, instance_id: instance_id}) do
+    build_tenant_id(project_id, env_id, instance_id)
+  end
 
   @spec build_tenant_id(
           project_id :: String.t(),
