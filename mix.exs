@@ -31,7 +31,7 @@ defmodule JetPluginSDK.MixProject do
       {:absinthe_client, "~> 0.1.0"},
       {:joken, "~> 2.6"},
       {:plug, "~> 1.14"},
-      {:req, "~> 0.4.14", override: true},
+      {:req, "~> 0.5.0", override: true},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
