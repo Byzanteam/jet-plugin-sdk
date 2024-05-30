@@ -3,28 +3,28 @@ defmodule JetPluginSDK.TenantMan.Registry do
 
   @compile {:inline, registry_name: 1}
 
-  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
+  @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
 
-  @spec child_spec(opts :: [naming_fun: naming_fun()]) :: Supervisor.child_spec()
+  @spec child_spec(opts :: [tenant_module: tenant_module()]) :: Supervisor.child_spec()
   def child_spec(opts) do
-    naming_fun = Keyword.fetch!(opts, :naming_fun)
+    tenant_module = Keyword.fetch!(opts, :tenant_module)
 
-    Supervisor.child_spec({Registry, keys: :unique, name: registry_name(naming_fun)}, [])
+    Supervisor.child_spec({Registry, keys: :unique, name: registry_name(tenant_module)}, [])
   end
 
-  @spec name(naming_fun(), tenant_id()) :: GenServer.name()
-  def name(naming_fun, tenant_id) do
-    {:via, Registry, {registry_name(naming_fun), tenant_id}}
+  @spec name(tenant_module(), tenant_id()) :: GenServer.name()
+  def name(tenant_module, tenant_id) do
+    {:via, Registry, {registry_name(tenant_module), tenant_id}}
   end
 
-  @spec whereis(naming_fun(), tenant_id()) :: {:ok, pid()} | :error
-  def whereis(naming_fun, tenant_id) do
-    case Registry.whereis_name({registry_name(naming_fun), tenant_id}) do
+  @spec whereis(tenant_module(), tenant_id()) :: {:ok, pid()} | :error
+  def whereis(tenant_module, tenant_id) do
+    case Registry.whereis_name({registry_name(tenant_module), tenant_id}) do
       :undefined -> :error
       pid -> {:ok, pid}
     end
   end
 
-  defp registry_name(naming_fun), do: naming_fun.(:registry)
+  defp registry_name(tenant_module), do: Module.concat(tenant_module, Registry)
 end

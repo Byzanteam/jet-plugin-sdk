@@ -3,11 +3,9 @@ defmodule JetPluginSDK.TenantMan.Supervisor do
 
   use Supervisor
 
-  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
   @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
 
   @spec start_link(
-          naming_fun: naming_fun(),
           tenant_module: tenant_module(),
           name: GenServer.name()
         ) ::
@@ -20,15 +18,18 @@ defmodule JetPluginSDK.TenantMan.Supervisor do
 
   @impl Supervisor
   def init(opts) do
-    naming_fun = Keyword.fetch!(opts, :naming_fun)
     tenant_module = Keyword.fetch!(opts, :tenant_module)
+    jet_client = Keyword.fetch!(opts, :jet_client)
 
     children = [
-      {JetPluginSDK.TenantMan.Registry, naming_fun: naming_fun},
-      {JetPluginSDK.TenantMan.Storage, naming_fun: naming_fun, tenant_module: tenant_module},
+      {JetPluginSDK.TenantMan.Registry, tenant_module: tenant_module},
+      {
+        JetPluginSDK.TenantMan.Storage,
+        tenant_module: tenant_module, jet_client: jet_client
+      },
       {
         JetPluginSDK.TenantMan.Tenants.Supervisor,
-        naming_fun: naming_fun, tenant_module: tenant_module
+        tenant_module: tenant_module, jet_client: jet_client
       }
     ]
 

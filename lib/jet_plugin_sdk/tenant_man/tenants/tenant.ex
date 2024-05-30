@@ -7,17 +7,18 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   alias JetPluginSDK.TenantMan.Storage
 
-  @enforce_keys [:naming_fun, :tenant_module, :tenant_id]
-  defstruct [:naming_fun, :tenant_module, :tenant_id, :tenant_state]
+  @enforce_keys [:jet_client, :tenant_module, :tenant_id]
+  defstruct [:jet_client, :tenant_module, :tenant_id, :tenant_state]
 
-  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
   @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
   @typep tenant_id() :: JetPluginSDK.Tenant.id()
 
   @spec start_link(
-          [tenant_module: tenant_module()],
+          [
+            tenant_module: tenant_module(),
+            jet_client: JetPluginSDK.JetClient.Protocol.t()
+          ],
           name: GenServer.name(),
-          naming_fun: naming_fun(),
           tenant_id: tenant_id()
         ) :: GenServer.on_start()
   def start_link(extra_args, opts) do
@@ -29,12 +30,17 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   @impl GenServer
   def init(opts) do
     tenant_module = Keyword.fetch!(opts, :tenant_module)
-    naming_fun = Keyword.fetch!(opts, :naming_fun)
+    jet_client = Keyword.fetch!(opts, :jet_client)
     tenant_id = Keyword.fetch!(opts, :tenant_id)
 
-    tenant = Storage.fetch!(naming_fun, tenant_id)
+    tenant = Storage.fetch!(tenant_module, tenant_id)
 
-    state = __struct__(naming_fun: naming_fun, tenant_id: tenant.id, tenant_module: tenant_module)
+    state =
+      __struct__(
+        jet_client: jet_client,
+        tenant_id: tenant.id,
+        tenant_module: tenant_module
+      )
 
     case tenant.state do
       :installing ->
@@ -57,7 +63,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case state.tenant_module.handle_install(tenant) do
       {:ok, tenant_state} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :running})
+        Storage.update!(state.tenant_module, %{tenant | state: :running})
+
+        Logger.debug(describe(state) <> " has been installed.")
 
         {
           :reply,
@@ -67,10 +75,14 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         }
 
       {:async, async} ->
+        Logger.debug(describe(state) <> " is installing asynchronously.")
+
         {:reply, :async, state, {:continue, {:"$tenant_man", {:install_async, async}}}}
 
       {:error, reason} ->
-        {:stop, reason, {:error, reason}, state}
+        Logger.debug(describe(state) <> " installation failed: #{inspect(reason)}")
+
+        {:stop, :normal, {:error, reason}, state}
     end
   end
 
@@ -84,24 +96,30 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case state.tenant_module.handle_update({config, capabilities}, {tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
-        Storage.update!(state.naming_fun, %{
+        Storage.update!(state.tenant_module, %{
           tenant
           | config: config,
             capabilities: capabilities
         })
+
+        Logger.debug(describe(state) <> " has been updated.")
 
         {:reply, :ok, %{state | tenant_state: tenant_state}}
 
       {:ok, tenant_state, extra} ->
-        Storage.update!(state.naming_fun, %{
+        Storage.update!(state.tenant_module, %{
           tenant
           | config: config,
             capabilities: capabilities
         })
 
+        Logger.debug(describe(state) <> " has been updated.")
+
         {:reply, :ok, %{state | tenant_state: tenant_state}, extra}
 
       {:async, async} ->
+        Logger.debug(describe(state) <> " is updating asynchronously.")
+
         {
           :reply,
           :async,
@@ -110,6 +128,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         }
 
       {:async, async, extra} ->
+        Logger.debug(describe(state) <> " is updating asynchronously.")
+
         {
           :reply,
           :async,
@@ -118,12 +138,16 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         }
 
       {:error, reason} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Logger.debug(describe(state) <> " updation failed: #{inspect(reason)}.")
+
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
 
         {:reply, {:error, reason}, state}
 
       {:error, reason, extra} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Logger.debug(describe(state) <> " updation failed: #{inspect(reason)}.")
+
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
 
         {:reply, {:error, reason}, state, extra}
     end
@@ -136,28 +160,40 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case state.tenant_module.handle_uninstall({tenant, state.tenant_state}) do
       {:ok, tenant_state} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :uninstalled})
+        Storage.update!(state.tenant_module, %{tenant | state: :uninstalled})
+
+        Logger.debug(describe(state) <> " has been uninstalled.")
 
         {:stop, :normal, :ok, %{state | tenant_state: tenant_state}}
 
       {:ok, tenant_state, extra} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :uninstalled})
+        Storage.update!(state.tenant_module, %{tenant | state: :uninstalled})
+
+        Logger.debug(describe(state) <> " has been uninstalled.")
 
         {:reply, :ok, %{state | tenant_state: tenant_state}, extra}
 
       {:async, async} ->
+        Logger.debug(describe(state) <> " is uninstalling asynchronously.")
+
         {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async}}}}
 
       {:async, async, extra} ->
+        Logger.debug(describe(state) <> " is uninstalling asynchronously.")
+
         {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
 
       {:error, reason} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(describe(state) <> " uninstallation failed: #{inspect(reason)}.")
 
         {:reply, {:error, reason}, state}
 
       {:error, reason, extra} ->
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(describe(state) <> " uninstallation failed: #{inspect(reason)}.")
 
         {:reply, {:error, reason}, state, extra}
     end
@@ -204,9 +240,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     case run_async(async) do
       {:ok, tenant_state} ->
         # TDOO: handle failure
-        report_install_result(tenant.id)
+        report_install_result(tenant.id, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :running})
+        Storage.update!(state.tenant_module, %{tenant | state: :running})
+
+        Logger.debug(describe(state) <> " has been installed asynchronously.")
 
         {
           :noreply,
@@ -216,9 +254,11 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
       {:error, reason} ->
         # TDOO: handle failure
-        report_install_result(tenant.id, reason)
+        report_install_result(tenant.id, reason, state)
 
-        {:stop, reason, state}
+        Logger.debug(describe(state) <> " asynchronous installation failed: #{inspect(reason)}.")
+
+        {:stop, :normal, state}
     end
   end
 
@@ -233,16 +273,16 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         {:noreply, %{state | tenant_state: tenant_state}, extra}
 
       {:error, reason, tenant_state} ->
-        report_error_occurred(tenant.id, reason)
+        report_error_occurred(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
 
         {:noreply, %{state | tenant_state: tenant_state}}
 
       {:error, reason, tenant_state, extra} ->
-        report_error_occurred(tenant.id, reason)
+        report_error_occurred(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
 
         {:noreply, %{state | tenant_state: tenant_state}, extra}
     end
@@ -256,20 +296,24 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_update_result(tenant.id)
+        report_update_result(tenant.id, state)
 
-        Storage.update!(state.naming_fun, %{
+        Storage.update!(state.tenant_module, %{
           tenant
           | config: config,
             capabilities: capabilities
         })
 
+        Logger.debug(describe(state) <> " has been updated asynchronously.")
+
         {:noreply, %{state | tenant_state: tenant_state}}
 
       {:error, reason} ->
-        report_update_result(tenant.id, reason)
+        report_update_result(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(describe(state) <> " asynchronous updation failed: #{inspect(reason)}.")
 
         {:noreply, state}
     end
@@ -283,20 +327,24 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_update_result(tenant.id)
+        report_update_result(tenant.id, state)
 
-        Storage.update!(state.naming_fun, %{
+        Storage.update!(state.tenant_module, %{
           tenant
           | config: config,
             capabilities: capabilities
         })
 
+        Logger.debug(describe(state) <> " has been updated asynchronously.")
+
         {:noreply, %{state | tenant_state: tenant_state}, extra}
 
       {:error, reason} ->
-        report_update_result(tenant.id, reason)
+        report_update_result(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(describe(state) <> " asynchronous updation failed: #{inspect(reason)}.")
 
         {:noreply, state, extra}
     end
@@ -307,16 +355,22 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_uninstall_result(tenant.id)
+        report_uninstall_result(tenant.id, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :uninstalled})
+        Storage.update!(state.tenant_module, %{tenant | state: :uninstalled})
+
+        Logger.debug(describe(state) <> " has been uninstalled asynchronously.")
 
         {:stop, :normal, %{state | tenant_state: tenant_state}}
 
       {:error, reason} ->
-        report_uninstall_result(tenant.id, reason)
+        report_uninstall_result(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(
+          describe(state) <> " asynchronous uninstallation failed: #{inspect(reason)}."
+        )
 
         {:noreply, state}
     end
@@ -327,16 +381,22 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
     case run_async(async) do
       {:ok, tenant_state} ->
-        report_uninstall_result(tenant.id)
+        report_uninstall_result(tenant.id, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :uninstalled})
+        Storage.update!(state.tenant_module, %{tenant | state: :uninstalled})
+
+        Logger.debug(describe(state) <> " has been uninstalled asynchronously.")
 
         {:noreply, %{state | tenant_state: tenant_state}, extra}
 
       {:error, reason} ->
-        report_uninstall_result(tenant.id, reason)
+        report_uninstall_result(tenant.id, reason, state)
 
-        Storage.update!(state.naming_fun, %{tenant | state: :error_occurred})
+        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+
+        Logger.debug(
+          describe(state) <> " asynchronous uninstallation failed: #{inspect(reason)}."
+        )
 
         {:noreply, state, extra}
     end
@@ -348,14 +408,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
   @impl GenServer
   def terminate(reason, %__MODULE__{} = state) do
-    case Storage.fetch(state.naming_fun, state.tenant_id) do
-      {:ok, tenant} ->
-        state.tenant_module.terminate(reason, {tenant, state.tenant_state})
+    tenant = fetch_tenant!(state)
 
-      :error ->
-        # if the tenant is stopped before `Storage.insert`
-        :ok
-    end
+    state.tenant_module.terminate(reason, {tenant, state.tenant_state})
   end
 
   defp build_payload(tenant_id, type, reason) do
@@ -401,28 +456,32 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
     end
   end
 
-  defp report_install_result(tenant_id, reason \\ nil) do
+  defp report_install_result(tenant_id, reason \\ nil, state) do
     tenant_id
     |> build_payload("install", reason)
-    |> JetPluginSDK.JetClient.send_event()
+    |> send_event(state)
   end
 
-  defp report_update_result(tenant_id, reason \\ nil) do
+  defp report_update_result(tenant_id, reason \\ nil, state) do
     tenant_id
     |> build_payload("update", reason)
-    |> JetPluginSDK.JetClient.send_event()
+    |> send_event(state)
   end
 
-  defp report_uninstall_result(tenant_id, reason \\ nil) do
+  defp report_uninstall_result(tenant_id, reason \\ nil, state) do
     tenant_id
     |> build_payload("uninstall", reason)
-    |> JetPluginSDK.JetClient.send_event()
+    |> send_event(state)
   end
 
-  defp report_error_occurred(tenant_id, reason) do
+  defp report_error_occurred(tenant_id, reason, state) do
     tenant_id
     |> build_payload("error_occurred", reason)
-    |> JetPluginSDK.JetClient.send_event()
+    |> send_event(state)
+  end
+
+  defp send_event(payload, state) do
+    JetPluginSDK.JetClient.Protocol.send_event(state.jet_client, payload)
   end
 
   defp run_async(async) when is_function(async, 0) do
@@ -448,7 +507,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
   end
 
   defp fetch_tenant!(%__MODULE__{} = state) do
-    Storage.fetch!(state.naming_fun, state.tenant_id)
+    Storage.fetch!(state.tenant_module, state.tenant_id)
   end
 
   defp describe(%__MODULE__{} = state) do

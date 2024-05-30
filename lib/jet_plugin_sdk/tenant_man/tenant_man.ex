@@ -45,8 +45,6 @@ defmodule JetPluginSDK.TenantMan do
   alias JetPluginSDK.TenantMan.Registry
   alias JetPluginSDK.TenantMan.Storage
 
-  @type naming_fun() ::
-          (:registry | :storage | :tenants_supervisor -> GenServer.name())
   @type tenant_module() :: module()
 
   @typep tenant() :: JetPluginSDK.Tenant.t()
@@ -136,17 +134,11 @@ defmodule JetPluginSDK.TenantMan do
           unquote(opts)
           |> Keyword.merge(opts)
           |> Keyword.merge(tenant_module: __MODULE__)
-          |> Keyword.put_new(:name, __MODULE__)
-          |> Keyword.put(:naming_fun, &default_naming_fun/1)
+          |> Keyword.put(:name, __MODULE__)
+          |> Keyword.put_new_lazy(:jet_client, &JetPluginSDK.JetClient.new/0)
 
         JetPluginSDK.TenantMan.Supervisor.start_link(opts)
       end
-
-      defp default_naming_fun(:registry), do: Module.concat(__MODULE__, Registry)
-      defp default_naming_fun(:storage), do: Module.concat(__MODULE__, Storage)
-
-      defp default_naming_fun(:tenants_supervisor),
-        do: Module.concat(__MODULE__, Tenants.Supervisor)
 
       # Callbacks
       @behaviour unquote(__MODULE__)
@@ -174,39 +166,47 @@ defmodule JetPluginSDK.TenantMan do
       @typep tenant_capabilities() :: JetPluginSDK.Tenant.capabilities()
 
       # Life-cycle APIs
-      @spec install(tenant()) :: :ok | :async | {:error, reason :: term()}
-      def install(tenant) do
-        unquote(__MODULE__).install(&default_naming_fun/1, tenant)
+      @spec install(tenant_id(), {tenant_config(), tenant_capabilities()}) ::
+              :ok | :async | {:error, reason :: term()}
+      def install(tenant_id, {config, capabilities}) do
+        unquote(__MODULE__).install(__MODULE__, tenant_id, {config, capabilities})
       end
 
       @spec update(tenant_id(), {tenant_config(), tenant_capabilities()}) ::
               :ok | :async | {:error, reason :: term()}
       def update(tenant_id, {config, capabilities}) do
-        unquote(__MODULE__).update(&default_naming_fun/1, tenant_id, {config, capabilities})
+        unquote(__MODULE__).update(__MODULE__, tenant_id, {config, capabilities})
       end
 
       @spec uninstall(tenant_id()) :: :ok | :async | {:error, reason :: term()}
       def uninstall(tenant_id) do
-        unquote(__MODULE__).uninstall(&default_naming_fun/1, tenant_id)
+        unquote(__MODULE__).uninstall(__MODULE__, tenant_id)
       end
 
       # Helpers
       @spec whereis(tenant_id()) :: {:ok, pid()} | :error
       def whereis(tenant_id) do
-        unquote(__MODULE__).whereis(&default_naming_fun/1, tenant_id)
+        unquote(__MODULE__).whereis(__MODULE__, tenant_id)
       end
 
       @spec fetch!(tenant_id()) :: tenant()
       def fetch!(tenant_id) do
-        unquote(__MODULE__).fetch_tenant!(&default_naming_fun/1, tenant_id)
+        unquote(__MODULE__).fetch_tenant!(__MODULE__, tenant_id)
       end
     end
   end
 
-  @spec install(naming_fun(), tenant()) ::
-          {:ok, pid()} | {:error, :arleady_exists | :invalid_state | term()}
-  def install(naming_fun, %Tenant{state: :installing} = tenant) do
-    case Storage.insert(naming_fun, tenant) do
+  @spec install(tenant_module(), tenant_id(), {tenant_config(), tenant_capabilities()}) ::
+          {:ok, pid()} | {:error, :arleady_exists | term()}
+  def install(tenant_module, tenant_id, {config, capabilities}) do
+    tenant = %Tenant{
+      id: tenant_id,
+      config: config,
+      capabilities: capabilities,
+      state: :installing
+    }
+
+    case Storage.insert(tenant_module, tenant) do
       {:ok, pid} ->
         GenServer.call(pid, {:"$tenant_man", :install, tenant})
 
@@ -215,14 +215,10 @@ defmodule JetPluginSDK.TenantMan do
     end
   end
 
-  def install(_naming_fun, %Tenant{}) do
-    {:error, :invalid_state}
-  end
-
-  @spec update(naming_fun(), tenant_id(), {tenant_config(), tenant_capabilities()}) ::
+  @spec update(tenant_module(), tenant_id(), {tenant_config(), tenant_capabilities()}) ::
           :ok | :async | {:error, term()}
-  def update(naming_fun, tenant_id, {config, capabilities}) do
-    case Registry.whereis(naming_fun, tenant_id) do
+  def update(tenant_module, tenant_id, {config, capabilities}) do
+    case Registry.whereis(tenant_module, tenant_id) do
       {:ok, pid} ->
         GenServer.call(pid, {:"$tenant_man", {:update, config, capabilities}})
 
@@ -231,22 +227,22 @@ defmodule JetPluginSDK.TenantMan do
     end
   end
 
-  @spec uninstall(naming_fun(), tenant_id()) :: term()
-  def uninstall(naming_fun, tenant_id) do
-    case Registry.whereis(naming_fun, tenant_id) do
+  @spec uninstall(tenant_module(), tenant_id()) :: term()
+  def uninstall(tenant_module, tenant_id) do
+    case Registry.whereis(tenant_module, tenant_id) do
       {:ok, pid} -> GenServer.call(pid, {:"$tenant_man", :uninstall})
       :error -> {:error, :tenant_not_found}
     end
   end
 
-  @spec whereis(naming_fun(), tenant_id()) :: {:ok, pid()} | :error
-  def whereis(naming_fun, tenant_id) do
-    Registry.whereis(naming_fun, tenant_id)
+  @spec whereis(tenant_module(), tenant_id()) :: {:ok, pid()} | :error
+  def whereis(tenant_module, tenant_id) do
+    Registry.whereis(tenant_module, tenant_id)
   end
 
-  @spec fetch_tenant!(naming_fun(), tenant_id()) :: tenant()
-  def fetch_tenant!(naming_fun, tenant_id) do
-    case Storage.fetch(naming_fun, tenant_id) do
+  @spec fetch_tenant!(tenant_module(), tenant_id()) :: tenant()
+  def fetch_tenant!(tenant_module, tenant_id) do
+    case Storage.fetch(tenant_module, tenant_id) do
       {:ok, tenant} -> tenant
       :error -> raise "The tenant with id(#{inspect(tenant_id)}) is not found"
     end

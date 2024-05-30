@@ -7,34 +7,32 @@ defmodule JetPluginSDK.TenantMan.Tenants.Supervisor do
 
   alias JetPluginSDK.TenantMan.Registry
 
-  @typep naming_fun() :: JetPluginSDK.TenantMan.naming_fun()
   @typep tenant_module() :: JetPluginSDK.TenantMan.tenant_module()
   @typep tenant() :: JetPluginSDK.Tenant.t()
 
-  @spec start_tenant(naming_fun(), tenant()) :: DynamicSupervisor.on_start_child()
-  def start_tenant(naming_fun, tenant) do
+  @spec start_tenant(tenant_module(), tenant()) :: DynamicSupervisor.on_start_child()
+  def start_tenant(tenant_module, tenant) do
     args = [
-      name: Registry.name(naming_fun, tenant.id),
-      naming_fun: naming_fun,
+      name: Registry.name(tenant_module, tenant.id),
+      tenant_module: tenant_module,
       tenant_id: tenant.id
     ]
 
     DynamicSupervisor.start_child(
-      supervisor_name(naming_fun),
+      supervisor_name(tenant_module),
       {JetPluginSDK.TenantMan.Tenants.Tenant, args}
     )
   end
 
-  @spec start_link(naming_fun: naming_fun(), tenant_module: tenant_module()) ::
-          Supervisor.on_start()
+  @spec start_link(tenant_module: tenant_module()) :: Supervisor.on_start()
   def start_link(args) do
     tenant_module = Keyword.fetch!(args, :tenant_module)
-    naming_fun = Keyword.fetch!(args, :naming_fun)
+    jet_client = Keyword.fetch!(args, :jet_client)
 
     DynamicSupervisor.start_link(
       __MODULE__,
-      [naming_fun: naming_fun, tenant_module: tenant_module],
-      name: supervisor_name(naming_fun)
+      [tenant_module: tenant_module, jet_client: jet_client],
+      name: supervisor_name(tenant_module)
     )
   end
 
@@ -43,5 +41,5 @@ defmodule JetPluginSDK.TenantMan.Tenants.Supervisor do
     DynamicSupervisor.init(strategy: :one_for_one, extra_arguments: [init_arg])
   end
 
-  defp supervisor_name(naming_fun), do: naming_fun.(:tenants_supervisor)
+  defp supervisor_name(tenant_module), do: Module.concat(tenant_module, TenantsSupervisor)
 end
