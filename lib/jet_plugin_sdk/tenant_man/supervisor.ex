@@ -24,15 +24,15 @@ defmodule JetPluginSDK.TenantMan.Supervisor do
     children = [
       {JetPluginSDK.TenantMan.Registry, tenant_module: tenant_module},
       {
-        JetPluginSDK.TenantMan.Storage,
+        JetPluginSDK.TenantMan.Tenants.Supervisor,
         tenant_module: tenant_module, jet_client: jet_client
       },
       {
-        JetPluginSDK.TenantMan.Tenants.Supervisor,
+        JetPluginSDK.TenantMan.Storage,
         tenant_module: tenant_module, jet_client: jet_client
       }
     ]
 
-    Supervisor.init(children, strategy: :rest_for_one)
+    Supervisor.init(children, strategy: :one_for_all)
   end
 end

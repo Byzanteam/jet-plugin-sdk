@@ -24,6 +24,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
         )
 
       assert_receive_failed_message("install", :install_failed)
+
+      assert_tenant_not_found(ctx.tenant.id)
     end
   end
 
@@ -94,9 +96,16 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
     end
 
     test "works", ctx do
+      {:ok, pid} = @tenant_module.whereis(ctx.tenant.id)
+      ref = Process.monitor(pid)
+
       :async = @tenant_module.uninstall(ctx.tenant.id)
 
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
+
       assert_receive_successful_message("uninstall")
+
+      assert_tenant_not_found(ctx.tenant.id)
     end
 
     test "failed", ctx do
