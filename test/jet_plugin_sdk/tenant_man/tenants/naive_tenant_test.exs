@@ -19,8 +19,13 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
       assert {:error, :install_failed} =
                @tenant_module.install(
                  ctx.tenant.id,
-                 {%{ctx.tenant.config | name: "error"}, ctx.tenant.capabilities}
+                 {Map.merge(ctx.tenant.config, %{name: "error", pid: self()}),
+                  ctx.tenant.capabilities}
                )
+
+      assert_receive {:handle_install, tenant_pid}
+      ref = Process.monitor(tenant_pid)
+      assert_receive {:DOWN, ^ref, :process, ^tenant_pid, _reason}
 
       assert_tenant_not_found(ctx.tenant.id)
     end
@@ -111,7 +116,12 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
     end
 
     test "works", ctx do
+      {:ok, pid} = @tenant_module.whereis(ctx.tenant.id)
+      ref = Process.monitor(pid)
+
       :ok = @tenant_module.uninstall(ctx.tenant.id)
+
+      assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
 
       assert_tenant_not_found(ctx.tenant.id)
     end

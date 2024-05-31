@@ -5,6 +5,8 @@ defmodule JetPluginSDK.Support.Tenant.Naive do
 
   @impl JetPluginSDK.TenantMan
   def handle_install(tenant) do
+    if pid = Map.get(tenant.config, :pid), do: send(pid, {:handle_install, self()})
+
     if tenant.config.name === "error" do
       {:error, :install_failed}
     else

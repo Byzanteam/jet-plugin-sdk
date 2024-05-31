@@ -20,8 +20,12 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
       :async =
         @tenant_module.install(
           ctx.tenant.id,
-          {%{ctx.tenant.config | name: "error"}, ctx.tenant.capabilities}
+          {Map.merge(ctx.tenant.config, %{name: "error", pid: self()}), ctx.tenant.capabilities}
         )
+
+      assert_receive {:install_async, tenant_pid}
+      ref = Process.monitor(tenant_pid)
+      assert_receive {:DOWN, ^ref, :process, ^tenant_pid, _reason}
 
       assert_receive_failed_message("install", :install_failed)
 

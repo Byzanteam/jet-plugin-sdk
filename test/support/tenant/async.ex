@@ -36,6 +36,8 @@ defmodule JetPluginSDK.Support.Tenant.Async do
 
   @spec install_async(JetPluginSDK.Tenant.t()) :: {:ok, term()} | {:error, :install_failed}
   def install_async(tenant) do
+    if pid = Map.get(tenant.config, :pid), do: send(pid, {:install_async, self()})
+
     if tenant.config.name === "error" do
       {:error, :install_failed}
     else
