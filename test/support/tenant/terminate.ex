@@ -1,4 +1,4 @@
-defmodule JetPluginSDK.Support.Tenant.GenServerLike do
+defmodule JetPluginSDK.Support.Tenant.Terminate do
   @moduledoc false
 
   use JetPluginSDK.TenantMan
@@ -14,7 +14,7 @@ defmodule JetPluginSDK.Support.Tenant.GenServerLike do
   end
 
   @impl JetPluginSDK.TenantMan
-  def handle_call(:ping, _from, state) do
-    {:reply, :pong, state}
+  def terminate(reason, {tenant, _state}) do
+    send(tenant.config.pid, {:tenant_terminated, tenant.id, reason})
   end
 end

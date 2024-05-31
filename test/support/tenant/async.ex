@@ -1,49 +1,65 @@
 defmodule JetPluginSDK.Support.Tenant.Async do
   @moduledoc false
 
-  use JetPluginSDK.TenantMan.Tenants.Tenant
+  use JetPluginSDK.TenantMan
 
-  @enforce_keys [:tenant_id, :config]
-  defstruct [:tenant_id, :config]
+  @spec fetch_tenant(JetPluginSDK.Tenant.id()) :: term()
+  def fetch_tenant(tenant_id) do
+    {:ok, pid} = whereis(tenant_id)
+    GenServer.call(pid, :fetch)
+  end
 
-  @impl JetPluginSDK.TenantMan.Tenants.Tenant
+  @impl JetPluginSDK.TenantMan
   def handle_install(tenant) do
-    case cast_config(tenant.config) do
-      %{errors: []} ->
-        {:ok, %__MODULE__{tenant_id: tenant.id, config: tenant.config}}
-
-      %{errors: errors} ->
-        {:error, {:invalid_config, errors}}
-    end
+    {:async, {__MODULE__, :install_async, [tenant]}}
   end
 
-  @impl JetPluginSDK.TenantMan.Tenants.Tenant
+  @impl JetPluginSDK.TenantMan
   def handle_run({_tenant, tenant_state}) do
-    {:noreply, tenant_state}
+    {:ok, tenant_state}
   end
 
-  @impl JetPluginSDK.TenantMan.Tenants.Tenant
-  def handle_update(config, {_tenant, state}) do
-    {:async, {__MODULE__, :update_async, [config, state]}}
+  @impl JetPluginSDK.TenantMan
+  def handle_update({config, capabilities}, {_tenant, state}) do
+    {:async, {__MODULE__, :update_async, [config, capabilities, state]}}
   end
 
-  def update_async(config, state) do
-    case cast_config(config) do
-      %{errors: []} ->
-        {:ok, %{state | config: config}}
+  @impl JetPluginSDK.TenantMan
+  def handle_uninstall({tenant, state}) do
+    {:async, {__MODULE__, :uninstall_async, [tenant, state]}}
+  end
 
-      %{errors: errors} ->
-        {:error, errors}
+  @impl JetPluginSDK.TenantMan
+  def handle_call(:fetch, _from, {tenant, state}) do
+    {:reply, tenant, state}
+  end
+
+  @spec install_async(JetPluginSDK.Tenant.t()) :: {:ok, term()} | {:error, :install_failed}
+  def install_async(tenant) do
+    if tenant.config.name === "error" do
+      {:error, :install_failed}
+    else
+      {:ok, %{}}
     end
   end
 
-  defp cast_config(config) do
-    name = Map.get(config, :name)
-
-    if is_nil(name) do
-      %{changes: %{}, errors: [name: {"is invalid", validation: :required}]}
+  @spec update_async(JetPluginSDK.Tenant.config(), JetPluginSDK.Tenant.capabilities(), term()) ::
+          {:ok, term()} | {:error, :update_failed}
+  def update_async(config, _capablities, state) do
+    if config.name === "update" do
+      {:error, :update_failed}
     else
-      %{changes: %{name: name}, errors: []}
+      {:ok, state}
+    end
+  end
+
+  @spec uninstall_async(JetPluginSDK.Tenant.t(), term()) ::
+          {:ok, term()} | {:error, :uninstall_failed}
+  def uninstall_async(tenant, state) do
+    if tenant.config.name === "uninstall" do
+      {:error, :uninstall_failed}
+    else
+      {:ok, state}
     end
   end
 end

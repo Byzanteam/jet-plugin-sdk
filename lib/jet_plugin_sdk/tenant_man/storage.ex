@@ -58,7 +58,8 @@ defmodule JetPluginSDK.TenantMan.Storage do
     GenServer.start_link(__MODULE__, args, name: storage_name(tenant_module))
   end
 
-  defp storage_name(tenant_module), do: Module.concat(tenant_module, Storage)
+  @spec storage_name(tenant_module()) :: atom()
+  def storage_name(tenant_module), do: Module.concat(tenant_module, Storage)
 
   @impl GenServer
   def init(opts) do
