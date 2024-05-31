@@ -1,4 +1,4 @@
-defmodule JetPluginSDk.TenantMan.Tenants.TerminateTenantTest do
+defmodule JetPluginSDK.TenantMan.Tenants.TerminateTenantTest do
   use JetPluginSDK.TenantCase,
     tenant_module: JetPluginSDK.Support.Tenant.Terminate,
     async: true

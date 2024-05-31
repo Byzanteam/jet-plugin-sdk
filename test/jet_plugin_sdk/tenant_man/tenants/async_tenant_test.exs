@@ -1,4 +1,4 @@
-defmodule JetPluginSDk.TenantMan.Tenants.AsyncTenantTest do
+defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
   use JetPluginSDK.TenantCase,
     tenant_module: JetPluginSDK.Support.Tenant.Async,
     jet_client: JetPluginSDK.Support.JetClient.EventCapture,

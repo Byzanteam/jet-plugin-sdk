@@ -17,6 +17,8 @@ defmodule JetPluginSDK.JetClient do
   defimpl JetPluginSDK.JetClient.Protocol do
     alias JetPluginSDK.GraphQLClient
     alias JetPluginSDK.Tenant
+    alias JetPluginSDK.Tenant.Capability
+    alias JetPluginSDK.Tenant.Config
 
     @instances_query """
     query Instances {
@@ -68,8 +70,8 @@ defmodule JetPluginSDK.JetClient do
         %Tenant{
           id: Tenant.build_tenant_id(project_id, environment_id, id),
           state: normalize_state(state),
-          config: config |> Jason.decode!() |> JetPluginSDK.Tenant.Config.from_json(),
-          capabilities: Enum.map(capabilities, &JetPluginSDK.Tenant.Capability.from_json/1)
+          config: config |> Jason.decode!() |> Config.from_json(),
+          capabilities: Enum.map(capabilities, &Capability.from_json/1)
         }
       end)
     end
