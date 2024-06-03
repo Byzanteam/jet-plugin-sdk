@@ -27,6 +27,8 @@ defmodule JetPluginSDK.Tenant do
         }
 
   @spec build_tenant_id(%{
+          optional(:config) => config(),
+          optional(:capabilities) => capabilities(),
           project_id: String.t(),
           env_id: String.t(),
           instance_id: String.t()

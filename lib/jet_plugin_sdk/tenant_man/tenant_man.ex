@@ -197,7 +197,7 @@ defmodule JetPluginSDK.TenantMan do
   end
 
   @spec install(tenant_module(), tenant_id(), {tenant_config(), tenant_capabilities()}) ::
-          {:ok, pid()} | {:error, :arleady_exists | term()}
+          :ok | :async | {:error, :arleady_exists | term()}
   def install(tenant_module, tenant_id, {config, capabilities}) do
     tenant = %Tenant{
       id: tenant_id,
@@ -216,7 +216,7 @@ defmodule JetPluginSDK.TenantMan do
   end
 
   @spec update(tenant_module(), tenant_id(), {tenant_config(), tenant_capabilities()}) ::
-          :ok | :async | {:error, term()}
+          :ok | :async | {:error, :tenant_not_found | term()}
   def update(tenant_module, tenant_id, {config, capabilities}) do
     case Registry.whereis(tenant_module, tenant_id) do
       {:ok, pid} ->
@@ -227,7 +227,8 @@ defmodule JetPluginSDK.TenantMan do
     end
   end
 
-  @spec uninstall(tenant_module(), tenant_id()) :: term()
+  @spec uninstall(tenant_module(), tenant_id()) ::
+          :ok | :async | {:error, :tenant_not_found | term()}
   def uninstall(tenant_module, tenant_id) do
     case Registry.whereis(tenant_module, tenant_id) do
       {:ok, pid} -> GenServer.call(pid, {:"$tenant_man", :uninstall})
