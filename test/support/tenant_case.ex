@@ -16,26 +16,12 @@ defmodule JetPluginSDK.TenantCase do
 
       alias JetPluginSDK.Tenant.Capability.Database
 
+      import unquote(__MODULE__)
+
       setup do
         start_supervised!({unquote(tenant_module), jet_client: unquote(jet_client).new()})
 
         :ok
-      end
-
-      def fetch_tenant!(tenant_id) do
-        unquote(tenant_module).fetch!(tenant_id)
-      end
-
-      def assert_receive_successful_message(event) do
-        unquote(__MODULE__).assert_receive_successful_message(event)
-      end
-
-      def assert_receive_failed_message(event, reason) do
-        unquote(__MODULE__).assert_receive_failed_message(event, reason)
-      end
-
-      def assert_tenant_not_found(tenant_id) do
-        unquote(__MODULE__).assert_tenant_not_found(unquote(tenant_module), tenant_id)
       end
     end
   end

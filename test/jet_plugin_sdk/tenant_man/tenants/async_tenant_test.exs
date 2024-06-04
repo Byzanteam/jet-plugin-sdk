@@ -29,7 +29,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
 
       assert_receive_failed_message("install", :install_failed)
 
-      assert_tenant_not_found(ctx.tenant.id)
+      assert_tenant_not_found(@tenant_module, ctx.tenant.id)
     end
   end
 
@@ -109,7 +109,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
 
       assert_receive_successful_message("uninstall")
 
-      assert_tenant_not_found(ctx.tenant.id)
+      assert_tenant_not_found(@tenant_module, ctx.tenant.id)
     end
 
     test "failed", ctx do

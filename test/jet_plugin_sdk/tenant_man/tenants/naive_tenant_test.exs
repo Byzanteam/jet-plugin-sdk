@@ -11,7 +11,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
 
       assert match?(
                %JetPluginSDK.Tenant{config: %{name: "foo"}, state: :running},
-               fetch_tenant!(ctx.tenant.id)
+               @tenant_module.fetch!(ctx.tenant.id)
              )
     end
 
@@ -27,7 +27,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
       ref = Process.monitor(tenant_pid)
       assert_receive {:DOWN, ^ref, :process, ^tenant_pid, _reason}
 
-      assert_tenant_not_found(ctx.tenant.id)
+      assert_tenant_not_found(@tenant_module, ctx.tenant.id)
     end
 
     test "returns error when the instance exists", ctx do
@@ -45,7 +45,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
 
       assert match?(
                %JetPluginSDK.Tenant{config: %{name: "foo"}, state: :running},
-               fetch_tenant!(ctx.tenant.id)
+               @tenant_module.fetch!(ctx.tenant.id)
              )
 
       assert %{active: 1, workers: 1} =
@@ -83,7 +83,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
                  ],
                  state: :running
                },
-               fetch_tenant!(ctx.tenant.id)
+               @tenant_module.fetch!(ctx.tenant.id)
              )
     end
 
@@ -101,7 +101,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
                  capabilities: [],
                  state: :error_occurred
                },
-               fetch_tenant!(ctx.tenant.id)
+               @tenant_module.fetch!(ctx.tenant.id)
              )
     end
   end
@@ -123,7 +123,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
 
       assert_receive {:DOWN, ^ref, :process, ^pid, :normal}
 
-      assert_tenant_not_found(ctx.tenant.id)
+      assert_tenant_not_found(@tenant_module, ctx.tenant.id)
     end
 
     test "return errors when the update fails", ctx do
@@ -137,7 +137,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
                  capabilities: [],
                  state: :error_occurred
                },
-               fetch_tenant!(ctx.tenant.id)
+               @tenant_module.fetch!(ctx.tenant.id)
              )
     end
   end
