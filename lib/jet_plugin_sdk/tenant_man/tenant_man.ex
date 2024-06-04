@@ -189,6 +189,11 @@ defmodule JetPluginSDK.TenantMan do
         unquote(__MODULE__).whereis(__MODULE__, tenant_id)
       end
 
+      @spec fetch(tenant_id()) :: {:ok, tenant()} | :error
+      def fetch(tenant_id) do
+        unquote(__MODULE__).fetch_tenant(__MODULE__, tenant_id)
+      end
+
       @spec fetch!(tenant_id()) :: tenant()
       def fetch!(tenant_id) do
         unquote(__MODULE__).fetch_tenant!(__MODULE__, tenant_id)
@@ -239,6 +244,11 @@ defmodule JetPluginSDK.TenantMan do
   @spec whereis(tenant_module(), tenant_id()) :: {:ok, pid()} | :error
   def whereis(tenant_module, tenant_id) do
     Registry.whereis(tenant_module, tenant_id)
+  end
+
+  @spec fetch_tenant(tenant_module(), tenant_id()) :: {:ok, tenant()} | :error
+  def fetch_tenant(tenant_module, tenant_id) do
+    Storage.fetch(tenant_module, tenant_id)
   end
 
   @spec fetch_tenant!(tenant_module(), tenant_id()) :: tenant()

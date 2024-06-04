@@ -26,6 +26,7 @@ defmodule JetPluginSDK.Tenant do
           state: state()
         }
 
+  # FIXME: https://github.com/Byzanteam/jet-plugin-sdk/pull/58#discussion_r1623729157
   @spec build_tenant_id(%{
           optional(:config) => config(),
           optional(:capabilities) => capabilities(),
