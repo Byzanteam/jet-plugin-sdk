@@ -19,11 +19,11 @@ defmodule JetPluginSDK.GraphQLClient do
     [
       url: url,
       connect_options: [timeout: timeout],
-      retry: :transient
+      retry: :transient,
+      json: %{query: query_string, variables: variables}
     ]
     |> Keyword.merge(opts)
     |> Req.new()
-    |> AbsintheClient.attach(graphql: {query_string, variables})
     # https://graphql.github.io/graphql-over-http/draft/#sec-Legacy-Watershed
     |> Req.Request.put_header(
       "accept",
