@@ -7,6 +7,7 @@ defmodule JetPluginSDK.MixProject do
       version: "0.1.0",
       name: "JetPluginSDK",
       elixir: "~> 1.14",
+      description: "The Jet Plugin SDK",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
       package: [
