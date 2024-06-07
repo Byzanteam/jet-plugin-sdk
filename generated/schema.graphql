@@ -18,6 +18,15 @@ type JetPluginCapabilityDatabase implements JetPluginCapability {
   enable: Boolean!
 }
 
+input JetPluginCapabilityInput @one_of {
+  database: JetPluginCapabilityDatabaseInput
+}
+
+input JetPluginCapabilityDatabaseInput {
+  schema: String!
+  databaseUrl: String!
+}
+
 interface JetPluginCallbackResponse {
   message: String
 
@@ -64,10 +73,14 @@ type RootMutationType {
   jetPluginInitialize: JetPluginInitializeResponse
 
   "Called when the plugin is installed by a project."
-  jetPluginInstall(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
+  jetPluginInstall(
+    projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!, capabilities: [JetPluginCapabilityInput!]!
+  ): JetPluginCallbackResponse
 
   "Called when the plugin is updated by a project."
-  jetPluginUpdate(projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!): JetPluginCallbackResponse
+  jetPluginUpdate(
+    projectId: String!, envId: String!, instanceId: String!, config: JetPluginConfig!, capabilities: [JetPluginCapabilityInput!]!
+  ): JetPluginCallbackResponse
 
   "Called when the plugin is uninstalled by a project."
   jetPluginUninstall(projectId: String!, envId: String!, instanceId: String!): JetPluginUninstallResponse
