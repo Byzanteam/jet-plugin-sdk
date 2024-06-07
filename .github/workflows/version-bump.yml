@@ -1,0 +1,27 @@
+name: Version bump
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseKind:
+        description: 'Kind of version bump'
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        required: true
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: Byzanteam/jet-actions/denoified-actions/elixir/bump_version@main
+        with:
+          gh-token: ${{ secrets.GITHUB_TOKEN }}
+          workflow-actor: ${{ github.actor }}
+          repository: ${{ github.repository }}
+          release-kind: ${{ inputs.releaseKind }}
