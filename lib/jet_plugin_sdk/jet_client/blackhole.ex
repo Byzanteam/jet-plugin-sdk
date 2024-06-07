@@ -1,4 +1,4 @@
-defmodule JetPluginSDK.Support.JetClient.Blackhole do
+defmodule JetPluginSDK.JetClient.Blackhole do
   @moduledoc """
   This client returns empty instances and ignores all events.
   """

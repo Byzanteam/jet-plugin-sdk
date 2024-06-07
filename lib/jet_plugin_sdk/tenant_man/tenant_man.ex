@@ -53,7 +53,8 @@ defmodule JetPluginSDK.TenantMan do
   @typep tenant_capabilities() :: JetPluginSDK.Tenant.capabilities()
   @typep tenant_state() :: term()
 
-  @typep async() :: {module(), atom(), args :: [term()]} | function()
+  @typep async_fun() :: (() -> {:ok, tenant_state()} | {:error, reason :: term()})
+  @typep async() :: {module(), atom(), args :: [term()]} | async_fun()
   @typep extra() :: {:continue, continue_arg :: term()} | :hibernate | timeout()
 
   @callback handle_install(tenant()) ::

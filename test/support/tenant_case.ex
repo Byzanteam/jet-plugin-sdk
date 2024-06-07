@@ -7,7 +7,7 @@ defmodule JetPluginSDK.TenantCase do
 
   using opts do
     tenant_module = Keyword.get(opts, :tenant_module, JetPluginSDK.Support.Tenant.Naive)
-    jet_client = Keyword.get(opts, :jet_client, JetPluginSDK.Support.JetClient.Blackhole)
+    jet_client = Keyword.get(opts, :jet_client, JetPluginSDK.JetClient.Blackhole)
 
     quote do
       @moduletag :unit
