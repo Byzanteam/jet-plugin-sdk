@@ -9,6 +9,14 @@ defmodule JetPluginSDK.MixProject do
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
       deps: deps(),
+      package: [
+        name: "jet_plugin_sdk",
+        licenses: ["MIT"],
+        files: ~w(lib mix.exs mix.lock .tool-versions README.md),
+        links: %{
+          "GitHub" => "https://github.com/Byzanteam/jet-plugin-sdk"
+        }
+      ],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:mix, :absinthe]
@@ -28,7 +36,7 @@ defmodule JetPluginSDK.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:mimic, "~> 1.7", only: :test},
-      {:jet_ext, github: "Byzanteam/jet-ext"}
+      {:jet_ext, "~> 0.1.0"}
     ]
   end
 

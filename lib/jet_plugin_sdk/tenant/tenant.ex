@@ -1,5 +1,7 @@
 defmodule JetPluginSDK.Tenant do
-  @moduledoc false
+  @moduledoc """
+  The Tenant module.
+  """
 
   @type id() :: String.t()
   @type config() :: JetPluginSDK.Tenant.Config.t()

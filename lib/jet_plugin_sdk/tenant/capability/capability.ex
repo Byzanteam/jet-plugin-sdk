@@ -1,5 +1,7 @@
 defmodule JetPluginSDK.Tenant.Capability do
-  @moduledoc false
+  @moduledoc """
+  The capabilities that Jet provides to plugins.
+  """
 
   alias JetPluginSDK.Tenant.Capability.Database
 

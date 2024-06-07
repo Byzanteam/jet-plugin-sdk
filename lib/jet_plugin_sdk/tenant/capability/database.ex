@@ -1,5 +1,7 @@
 defmodule JetPluginSDK.Tenant.Capability.Database do
-  @moduledoc false
+  @moduledoc """
+  The database capability.
+  """
 
   @behaviour JetPluginSDK.Tenant.Capability
 
