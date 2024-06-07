@@ -1,4 +1,4 @@
-defmodule JetPluginSdk.JetPluginSdkTest do
+defmodule JetPluginSDK.JetPluginSDKTest do
   use ExUnit.Case, async: true
   use Plug.Test
   use Mimic

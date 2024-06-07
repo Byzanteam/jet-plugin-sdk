@@ -3,6 +3,7 @@ defmodule JetPluginSDK.API.GraphQL do
   This module helps to define the GraphQL API schema for Jet plugins.
 
   ## define schema
+
   ```elixir
   defmodule MySchema do
     use JetPluginSDK.API.GraphQL,
@@ -47,6 +48,19 @@ defmodule JetPluginSDK.API.GraphQL do
     @impl JetPluginSDK.API.GraphQL
     def health_check(_args, _resolution) do
       # implement health check here
+    end
+  end
+  ```
+
+  ## generate callbacks via setting tenant_module
+
+  ```elixir
+  defmodule MySchema do
+    use JetPluginSDK.API.GraphQL,
+      tenant_module: MyApp.Tenant
+
+    plugin_config do
+      field :foo, :string
     end
   end
   ```
@@ -102,7 +116,8 @@ defmodule JetPluginSDK.API.GraphQL do
                 project_id: String.t(),
                 env_id: String.t(),
                 instance_id: String.t(),
-                config: map()
+                config: JetPluginSDK.Tenant.config(),
+                capabilities: JetPluginSDK.Tenant.capabilities()
               },
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
@@ -112,7 +127,8 @@ defmodule JetPluginSDK.API.GraphQL do
                 project_id: String.t(),
                 env_id: String.t(),
                 instance_id: String.t(),
-                config: map()
+                config: JetPluginSDK.Tenant.config(),
+                capabilities: JetPluginSDK.Tenant.capabilities()
               },
               resolution()
             ) :: {:ok, callback_response()} | {:error, term()}
@@ -126,19 +142,27 @@ defmodule JetPluginSDK.API.GraphQL do
               resolution()
             ) :: {:ok, callback_response_ok() | callback_response_async()} | {:error, term()}
 
-  defmacro __using__(opts) do
+  defmacro __using__(opts \\ []) do
+    tenant_module =
+      opts
+      |> Keyword.get(:tenant_module)
+      |> Macro.expand(__CALLER__)
+
     behaviour =
       quote location: :keep do
         use Absinthe.Schema
 
         import JetPluginSDK.API.GraphQL, only: [plugin_config: 1]
 
+        @prototype_schema JetExt.Absinthe.OneOf.SchemaProtoType
         # 这里必须放到 `use Absinthe.Schema` 后面，否则编译器不会保留 Absinthe.Scheme 的 behaviour
         @behaviour JetPluginSDK.API.GraphQL
+        @defoverridable JetPluginSDK.API.GraphQL
       end
 
     [
       behaviour,
+      behaviour_imp(tenant_module),
       types(),
       schema(opts)
     ]
@@ -157,6 +181,68 @@ defmodule JetPluginSDK.API.GraphQL do
     quote location: :keep do
       input_object :jet_plugin_config do
         unquote(block)
+      end
+    end
+  end
+
+  defp behaviour_imp(nil), do: nil
+
+  # credo:disable-for-next-line Credo.Check.Refactor.CyclomaticComplexity
+  defp behaviour_imp(tenant_module) do
+    quote location: :keep do
+      @tenant_module unquote(tenant_module)
+
+      @impl JetPluginSDK.API.GraphQL
+      def install(args, _resolution) do
+        tenant_id = JetPluginSDK.Tenant.build_tenant_id(args)
+
+        case @tenant_module.install(tenant_id, {args.config, args.capabilities}) do
+          :ok ->
+            {:ok, %{__callback_resp_type__: :ok, message: "success"}}
+
+          :async ->
+            {:ok, %{__callback_resp_type__: :async}}
+
+          {:error, error} ->
+            {:error, inspect(error)}
+        end
+      end
+
+      @impl JetPluginSDK.API.GraphQL
+      def update(args, _resolution) do
+        tenant_id = JetPluginSDK.Tenant.build_tenant_id(args)
+
+        case @tenant_module.update(tenant_id, {args.config, args.capabilities}) do
+          :ok ->
+            {:ok, %{__callback_resp_type__: :ok, message: "success"}}
+
+          :async ->
+            {:ok, %{__callback_resp_type__: :async}}
+
+          {:error, error} ->
+            {:error, inspect(error)}
+        end
+      end
+
+      @impl JetPluginSDK.API.GraphQL
+      def uninstall(args, _resolution) do
+        tenant_id = JetPluginSDK.Tenant.build_tenant_id(args)
+
+        case @tenant_module.uninstall(tenant_id) do
+          :ok ->
+            {:ok, %{__callback_resp_type__: :ok, message: "success"}}
+
+          :async ->
+            {:ok, %{__callback_resp_type__: :async}}
+
+          {:error, error} ->
+            {:error, inspect(error)}
+        end
+      end
+
+      @impl JetPluginSDK.API.GraphQL
+      def health_check(_args, _resolution) do
+        {:ok, %{__callback_resp_type__: :ok, message: "success"}}
       end
     end
   end
@@ -183,6 +269,23 @@ defmodule JetPluginSDK.API.GraphQL do
           %{__capability_type__: :database} -> true
           _otherwise -> false
         end
+      end
+
+      input_object :jet_plugin_capability_input do
+        directive :one_of
+
+        private(
+          :input_modifier,
+          :with,
+          {JetPluginSDK.API.CapabilityNormalizer, :run, []}
+        )
+
+        field :database, :jet_plugin_capability_database_input
+      end
+
+      input_object :jet_plugin_capability_database_input do
+        field :schema, non_null(:string)
+        field :database_url, non_null(:string)
       end
 
       interface :jet_plugin_callback_response do
@@ -291,6 +394,9 @@ defmodule JetPluginSDK.API.GraphQL do
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
           arg :config, non_null(:jet_plugin_config)
+          arg :capabilities, non_null(list_of(non_null(:jet_plugin_capability_input)))
+
+          middleware JetExt.Absinthe.OneOf.Middleware.InputModifier
 
           resolve &__MODULE__.install/2
         end
@@ -303,6 +409,9 @@ defmodule JetPluginSDK.API.GraphQL do
           arg :env_id, non_null(:string)
           arg :instance_id, non_null(:string)
           arg :config, non_null(:jet_plugin_config)
+          arg :capabilities, non_null(list_of(non_null(:jet_plugin_capability_input)))
+
+          middleware JetExt.Absinthe.OneOf.Middleware.InputModifier
 
           resolve &__MODULE__.update/2
         end
