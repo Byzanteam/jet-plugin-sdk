@@ -1,5 +1,7 @@
 defmodule JetPluginSDK.Tenant.Config do
-  @moduledoc false
+  @moduledoc """
+  The config that is defined by the plugin.
+  """
 
   @type t() :: %{atom() => term()}
 
