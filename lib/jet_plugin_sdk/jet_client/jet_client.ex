@@ -48,13 +48,30 @@ defmodule JetPluginSDK.JetClient do
       end
     end
 
+    @spec fetch_data(Req.Response.t(), list(String.t())) ::
+            {:ok, term()} | {:error, Req.Response.t()}
     defp fetch_data(response, path) do
-      if Map.has_key?(response.body, "errors") do
-        {:error, response}
+      with(
+        :error <- fetch_in_map(response.body, ["errors"]),
+        {:ok, data} <- fetch_in_map(response.body, path)
+      ) do
+        {:ok, data}
       else
-        {:ok, get_in(response.body, path)}
+        _otherwise -> {:error, response}
       end
     end
+
+    @spec fetch_in_map(term(), list(String.t())) :: {:ok, term()} | :error
+    defp fetch_in_map(data, []), do: {:ok, data}
+
+    defp fetch_in_map(data, [key | rest]) when is_map(data) do
+      case Map.fetch(data, key) do
+        :error -> :error
+        {:ok, value} -> fetch_in_map(value, rest)
+      end
+    end
+
+    defp fetch_in_map(_data, _path), do: :error
 
     defp build_instances(instances) do
       Enum.map(instances, fn instance ->
@@ -106,6 +123,8 @@ defmodule JetPluginSDK.JetClient do
       end
     end
 
+    @spec query(String.t(), map(), @for.t()) ::
+            {:ok, Req.Response.t()} | {:error, GraphQLClient.error()}
     defp query(doc, variables \\ %{}, client) do
       JetPluginSDK.GraphQLClient.query(client.endpoint, doc,
         headers: [{"x-jet-plugin-access-key", client.access_key}],
