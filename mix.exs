@@ -18,6 +18,7 @@ defmodule JetPluginSDK.MixProject do
           "GitHub" => "https://github.com/Byzanteam/jet-plugin-sdk"
         }
       ],
+      docs: docs(),
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:mix, :absinthe]
@@ -38,6 +39,24 @@ defmodule JetPluginSDK.MixProject do
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:mimic, "~> 1.7", only: :test},
       {:jet_ext, "~> 0.1.0"}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "Ecto",
+      groups_for_docs: [
+        {"Life-cycle callbacks", &(&1[:group] == "Life-cycle callbacks")},
+        {"GenServer callbacks", &(&1[:group] == "GenServer callbacks")}
+      ],
+      groups_for_modules: [
+        "Life-cycle callbacks": [
+          JetPluginSDK.TenantMan
+        ],
+        "GenServer callbacks": [
+          JetPluginSDK.TenantMan
+        ]
+      ]
     ]
   end
 
