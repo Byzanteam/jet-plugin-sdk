@@ -57,17 +57,22 @@ defmodule JetPluginSDK.TenantMan do
   @typep async() :: {module(), atom(), args :: [term()]} | async_fun()
   @typep extra() :: {:continue, continue_arg :: term()} | :hibernate | timeout()
 
+  ## Life-cycle callbacks
+
+  @doc group: "Life-cycle callbacks"
   @callback handle_install(tenant()) ::
               {:ok, tenant_state()}
               | {:async, async()}
               | {:error, reason :: term()}
 
+  @doc group: "Life-cycle callbacks"
   @callback handle_run({tenant(), tenant_state()}) ::
               {:ok, tenant_state()}
               | {:ok, tenant_state(), extra()}
               | {:error, reason :: term(), tenant_state()}
               | {:error, reason :: term(), tenant_state(), extra()}
 
+  @doc group: "Life-cycle callbacks"
   @callback handle_update({tenant_config(), tenant_capabilities()}, {tenant(), tenant_state()}) ::
               {:ok, tenant_state()}
               | {:ok, tenant_state(), extra()}
@@ -76,6 +81,7 @@ defmodule JetPluginSDK.TenantMan do
               | {:error, reason :: term()}
               | {:error, reason :: term(), extra()}
 
+  @doc group: "Life-cycle callbacks"
   @callback handle_uninstall({tenant(), tenant_state()}) ::
               {:ok, tenant_state()}
               | {:ok, tenant_state(), extra()}
@@ -84,6 +90,7 @@ defmodule JetPluginSDK.TenantMan do
               | {:error, reason :: term()}
               | {:error, reason :: term(), extra()}
 
+  @doc group: "GenServer callbacks"
   @callback handle_call(request :: term(), from :: GenServer.from(), {tenant(), tenant_state()}) ::
               {:reply, reply, tenant_state()}
               | {:reply, reply, tenant_state(), extra()}
@@ -93,21 +100,27 @@ defmodule JetPluginSDK.TenantMan do
               | {:stop, reason, tenant_state()}
             when reply: var, reason: term()
 
+  ## GenServer callbacks
+
+  @doc group: "GenServer callbacks"
   @callback handle_cast(request :: term(), {tenant(), tenant_state()}) ::
               {:noreply, tenant_state()}
               | {:noreply, tenant_state(), extra()}
               | {:stop, reason :: term(), tenant_state()}
 
+  @doc group: "GenServer callbacks"
   @callback handle_continue(continue_arg :: term(), {tenant(), tenant_state()}) ::
               {:noreply, tenant_state()}
               | {:noreply, tenant_state(), extra()}
               | {:stop, reason :: term(), tenant_state()}
 
+  @doc group: "GenServer callbacks"
   @callback handle_info(msg :: :timeout | term(), {tenant(), tenant_state()}) ::
               {:noreply, tenant_state()}
               | {:noreply, tenant_state(), extra()}
               | {:stop, reason :: term(), tenant_state()}
 
+  @doc group: "GenServer callbacks"
   @callback terminate(reason, {tenant(), tenant_state()}) :: term()
             when reason: :normal | :shutdown | {:shutdown, term()} | term()
 
