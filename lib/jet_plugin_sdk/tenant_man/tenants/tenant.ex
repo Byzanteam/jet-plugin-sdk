@@ -98,7 +98,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:ok, tenant_state} ->
         Storage.update!(state.tenant_module, %{
           tenant
-          | config: config,
+          | state: :running,
+            config: config,
             capabilities: capabilities
         })
 
@@ -109,7 +110,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:ok, tenant_state, extra} ->
         Storage.update!(state.tenant_module, %{
           tenant
-          | config: config,
+          | state: :running,
+            config: config,
             capabilities: capabilities
         })
 
@@ -304,7 +306,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
         Storage.update!(state.tenant_module, %{
           tenant
-          | config: config,
+          | state: :running,
+            config: config,
             capabilities: capabilities
         })
 
@@ -336,7 +339,8 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
 
         Storage.update!(state.tenant_module, %{
           tenant
-          | config: config,
+          | state: :running,
+            config: config,
             capabilities: capabilities
         })
 
