@@ -99,7 +99,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
                %JetPluginSDK.Tenant{
                  config: %{name: "foo"},
                  capabilities: [],
-                 state: :error_occurred
+                 state: :running
                },
                @tenant_module.fetch!(ctx.tenant.id)
              )
@@ -135,7 +135,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.NaiveTenantTest do
                %JetPluginSDK.Tenant{
                  config: %{name: "uninstall"},
                  capabilities: [],
-                 state: :error_occurred
+                 state: :running
                },
                @tenant_module.fetch!(ctx.tenant.id)
              )
