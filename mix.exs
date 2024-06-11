@@ -33,6 +33,7 @@ defmodule JetPluginSDK.MixProject do
       {:absinthe, "~> 1.7"},
       {:joken, "~> 2.6"},
       {:plug, "~> 1.14"},
+      {:jason, "~> 1.4"},
       {:req, "~> 0.5.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
