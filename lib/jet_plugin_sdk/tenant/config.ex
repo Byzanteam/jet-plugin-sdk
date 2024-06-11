@@ -17,7 +17,7 @@ defmodule JetPluginSDK.Tenant.Config do
   end
 
   defp do_from_json(list) when is_list(list) do
-    Enum.map(list, &from_json/1)
+    Enum.map(list, &do_from_json/1)
   end
 
   defp do_from_json(value) do
