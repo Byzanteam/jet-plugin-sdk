@@ -138,16 +138,18 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         }
 
       {:error, reason} ->
-        Logger.debug(describe(state) <> " updation failed: #{inspect(reason)}.")
-
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+        Logger.debug(
+          describe(state) <>
+            " updation failed: #{inspect(reason)}, the config and capabilities are not updated."
+        )
 
         {:reply, {:error, reason}, state}
 
       {:error, reason, extra} ->
-        Logger.debug(describe(state) <> " updation failed: #{inspect(reason)}.")
-
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
+        Logger.debug(
+          describe(state) <>
+            " updation failed: #{inspect(reason)}, the config and capabilities are not updated."
+        )
 
         {:reply, {:error, reason}, state, extra}
     end
@@ -184,16 +186,18 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
         {:reply, :async, state, {:continue, {:"$tenant_man", {:uninstall_async, async, extra}}}}
 
       {:error, reason} ->
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
-        Logger.debug(describe(state) <> " uninstallation failed: #{inspect(reason)}.")
+        Logger.debug(
+          describe(state) <>
+            " uninstallation failed: #{inspect(reason)}, the instance is not uninstalled."
+        )
 
         {:reply, {:error, reason}, state}
 
       {:error, reason, extra} ->
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
-        Logger.debug(describe(state) <> " uninstallation failed: #{inspect(reason)}.")
+        Logger.debug(
+          describe(state) <>
+            " uninstallation failed: #{inspect(reason)}, the instance is not uninstalled."
+        )
 
         {:reply, {:error, reason}, state, extra}
     end
@@ -311,9 +315,10 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:error, reason} ->
         report_update_result(tenant.id, reason, state)
 
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
-        Logger.debug(describe(state) <> " asynchronous updation failed: #{inspect(reason)}.")
+        Logger.debug(
+          describe(state) <>
+            " asynchronous updation failed: #{inspect(reason)}, the config and capabilities are not updated."
+        )
 
         {:noreply, state}
     end
@@ -342,9 +347,10 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:error, reason} ->
         report_update_result(tenant.id, reason, state)
 
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
-        Logger.debug(describe(state) <> " asynchronous updation failed: #{inspect(reason)}.")
+        Logger.debug(
+          describe(state) <>
+            " asynchronous updation failed: #{inspect(reason)}, the config and capabilities are not updated."
+        )
 
         {:noreply, state, extra}
     end
@@ -366,10 +372,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:error, reason} ->
         report_uninstall_result(tenant.id, reason, state)
 
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
         Logger.debug(
-          describe(state) <> " asynchronous uninstallation failed: #{inspect(reason)}."
+          describe(state) <>
+            " asynchronous uninstallation failed: #{inspect(reason)}, the instance is not uninstalled."
         )
 
         {:noreply, state}
@@ -392,10 +397,9 @@ defmodule JetPluginSDK.TenantMan.Tenants.Tenant do
       {:error, reason} ->
         report_uninstall_result(tenant.id, reason, state)
 
-        Storage.update!(state.tenant_module, %{tenant | state: :error_occurred})
-
         Logger.debug(
-          describe(state) <> " asynchronous uninstallation failed: #{inspect(reason)}."
+          describe(state) <>
+            " asynchronous uninstallation failed: #{inspect(reason)}, the instance is not uninstalled."
         )
 
         {:noreply, state, extra}

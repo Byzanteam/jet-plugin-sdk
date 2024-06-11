@@ -81,7 +81,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
                %JetPluginSDK.Tenant{
                  config: %{name: "foo"},
                  capabilities: [],
-                 state: :error_occurred
+                 state: :running
                },
                @tenant_module.fetch_tenant(ctx.tenant.id)
              )
@@ -127,7 +127,7 @@ defmodule JetPluginSDK.TenantMan.Tenants.AsyncTenantTest do
                %JetPluginSDK.Tenant{
                  config: %{name: "uninstall"},
                  capabilities: [],
-                 state: :error_occurred
+                 state: :running
                },
                @tenant_module.fetch_tenant(ctx.tenant.id)
              )
