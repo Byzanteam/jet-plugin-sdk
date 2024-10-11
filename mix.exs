@@ -39,7 +39,7 @@ defmodule JetPluginSDK.MixProject do
       {:dialyxir, "~> 1.0", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.31", only: :dev, runtime: false},
       {:mimic, "~> 1.7", only: :test},
-      {:jet_ext, "~> 0.2.0"}
+      {:jet_ext, "~> 0.3.0"}
     ]
   end
 
