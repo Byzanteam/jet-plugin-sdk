@@ -4,7 +4,7 @@ defmodule JetPluginSDK.MixProject do
   def project do
     [
       app: :jet_plugin_sdk,
-      version: "0.1.5",
+      version: "0.2.0",
       name: "JetPluginSDK",
       elixir: "~> 1.14",
       description: "The Jet Plugin SDK",
