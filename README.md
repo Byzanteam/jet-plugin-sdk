@@ -11,5 +11,5 @@ def deps do
   ]
 end
 ```
-The docs can be found at <https://hexdocs.pm/jet_plugin_sdk>.
 
+The docs can be found at <https://hexdocs.pm/jet_plugin_sdk>.

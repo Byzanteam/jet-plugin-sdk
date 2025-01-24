@@ -74,7 +74,7 @@ defmodule JetPluginSDK do
   end
 
   defp extract_tenant(token, key_provider: key_provider) do
-    signer = Joken.Signer.create("RS256", %{"pem" => fetch_key(key_provider)})
+    signer = Joken.Signer.create("EdDSA", %{"pem" => fetch_key(key_provider)})
 
     case Joken.Signer.verify(token, signer) do
       {:ok, %{"projId" => project_id, "envId" => environment_id, "instId" => instance_id}} ->
