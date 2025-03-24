@@ -59,6 +59,14 @@ defmodule JetPluginSDK do
     end
   end
 
+  @spec verify_token(token :: binary(), pem :: binary()) ::
+          {:ok, Joken.claims()} | {:error, Joken.error_reason()}
+  def verify_token(token, pem) do
+    signer = Joken.Signer.create("EdDSA", %{"pem" => pem})
+
+    Joken.Signer.verify(token, signer)
+  end
+
   defp extract_api_key(%Plug.Conn{} = conn) do
     case Plug.Conn.get_req_header(conn, @token_header) do
       [token] -> {:ok, token}
@@ -74,9 +82,7 @@ defmodule JetPluginSDK do
   end
 
   defp extract_tenant(token, key_provider: key_provider) do
-    signer = Joken.Signer.create("EdDSA", %{"pem" => fetch_key(key_provider)})
-
-    case Joken.Signer.verify(token, signer) do
+    case verify_token(token, fetch_key(key_provider)) do
       {:ok, %{"projId" => project_id, "envId" => environment_id, "instId" => instance_id}} ->
         {:ok, %{project_id: project_id, environment_id: environment_id, instance_id: instance_id}}
 
